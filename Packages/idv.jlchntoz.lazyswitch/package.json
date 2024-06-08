@@ -1,0 +1,13 @@
+{
+  "name": "com.explosive-theorem-lab.lazyswitch",
+  "displayName": "Lazy Switch",
+  "version": "0.1.0",
+  "unity": "2019.4",
+  "description": "A maximum 32-states multi purpose switch for VRChat, designed for lazies.",
+  "vrchatVersion": "2022.1.1",
+  "author": {
+    "name": "Momo the Monster",
+    "email": "momodmonster@gmail.com",
+    "url": "https://mmmlabs.com"
+  }
+}

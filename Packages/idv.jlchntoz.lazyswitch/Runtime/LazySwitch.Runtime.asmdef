@@ -1,9 +1,12 @@
 {
-    "name": "VRChatPackageTemplate.Editor",
-    "references": [],
-    "includePlatforms": [
-        "Editor"
+    "name": "LazySwitch",
+    "rootNamespace": "",
+    "references": [
+        "VRC.Udon",
+        "UdonSharp.Runtime",
+        "UdonSharp.Editor"
     ],
+    "includePlatforms": [],
     "excludePlatforms": [],
     "allowUnsafeCode": false,
     "overrideReferences": false,
