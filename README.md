@@ -23,7 +23,7 @@ This is a multi-purpose switch component for use in VRChat worlds. Here is its f
 
 # Installation
 
-You can install via VCC or directly put everything inside "LazySwitch" folder to your world project.
+You can install via [VCC](https://xtlcdn.github.io/vpm/) or directly put everything inside "LazySwitch" folder to your world project.
 
 You can getting started by dragging the provided "Lazy Switch Sample" prefab to your scene.
 
