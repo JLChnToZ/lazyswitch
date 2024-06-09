@@ -1,11 +1,5 @@
 {
   "dependencies": {
-    "com.explosive-theorem-lab.lazyswitch": {
-      "version": "file:idv.jlchntoz.lazyswitch",
-      "depth": 0,
-      "source": "embedded",
-      "dependencies": {}
-    },
     "com.unity.2d.sprite": {
       "version": "1.0.0",
       "depth": 0,
@@ -242,6 +236,12 @@
       "source": "git",
       "dependencies": {},
       "hash": "65374b316589dfdaec411f0ef31f557178f61cac"
+    },
+    "idv.jlchntoz.lazyswitch": {
+      "version": "file:idv.jlchntoz.lazyswitch",
+      "depth": 0,
+      "source": "embedded",
+      "dependencies": {}
     },
     "com.unity.modules.ai": {
       "version": "1.0.0",
