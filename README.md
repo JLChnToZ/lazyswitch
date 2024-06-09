@@ -2,7 +2,7 @@
 
 This is a multi-purpose switch component for use in VRChat worlds. Here is its features:
 
-- Maximium 32 states.
+- Maximium 32 states, each state can have infinite number of components to be controlled.
 - Can switch states by ordered or randomized.
 - Switch chaining, you can assign a "master switch" and when interact to either one, both will be synchroized.
 - Works with both local or global (synced) mode.
