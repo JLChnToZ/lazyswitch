@@ -1,5 +1,5 @@
 {
-    "name": "LazySwitch",
+    "name": "LazySwitch.Runtime",
     "rootNamespace": "JLChnToZ.VRC",
     "references": [
         "VRC.Udon",

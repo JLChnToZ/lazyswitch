@@ -266,7 +266,7 @@ MonoBehaviour:
       Data: 17|System.RuntimeType, mscorlib
     - Name: 
       Entry: 1
-      Data: JLChnToZ.VRC.LazySwitch, Assembly-CSharp
+      Data: JLChnToZ.VRC.LazySwitch, LazySwitch.Runtime
     - Name: 
       Entry: 8
       Data: 
@@ -342,7 +342,7 @@ MonoBehaviour:
       Data: 23|System.RuntimeType, mscorlib
     - Name: 
       Entry: 1
-      Data: JLChnToZ.VRC.LazySwitch[], Assembly-CSharp
+      Data: JLChnToZ.VRC.LazySwitch[], LazySwitch.Runtime
     - Name: 
       Entry: 8
       Data: 
@@ -474,7 +474,7 @@ MonoBehaviour:
       Data: 33|System.RuntimeType, mscorlib
     - Name: 
       Entry: 1
-      Data: JLChnToZ.VRC.SwitchDrivenType[], Assembly-CSharp
+      Data: JLChnToZ.VRC.SwitchDrivenType[], LazySwitch.Runtime
     - Name: 
       Entry: 8
       Data: 

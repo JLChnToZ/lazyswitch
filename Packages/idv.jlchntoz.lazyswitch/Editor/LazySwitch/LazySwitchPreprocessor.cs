@@ -16,8 +16,11 @@ namespace JLChnToZ.VRC {
 
         public void OnProcessScene(Scene scene, BuildReport report) {
             var switches = new List<LazySwitch>();
-            foreach (var rootGameObject in scene.GetRootGameObjects())
-                switches.AddRange(rootGameObject.GetComponentsInChildren<LazySwitch>(true));
+            var temp = new List<LazySwitch>();
+            foreach (var rootGameObject in scene.GetRootGameObjects()) {
+                rootGameObject.GetComponentsInChildren(true, temp);
+                switches.AddRange(temp);
+            }
             if (switches.Count == 0) return;
             var switchGroups = new Dictionary<LazySwitch, List<LazySwitch>>();
             var targetObjectEnableMask = new Dictionary<UnityObject, (SwitchDrivenType objectType, int onFlags, int offFlags)>();
@@ -81,7 +84,7 @@ namespace JLChnToZ.VRC {
                 }
                 masterSwitch.stateCount = Mathf.Max(masterSwitch.stateCount, sw.targetObjectGroupOffsets.Length);
                 sw.targetObjectGroupOffsets = Array.Empty<int>(); // Clean up on build to save space
-                sw.targetObjects = new GameObject[targetObjectEnableMask.Count];
+                sw.targetObjects = new UnityObject[targetObjectEnableMask.Count];
                 sw.targetObjectEnableMask = new int[targetObjectEnableMask.Count];
                 sw.targetObjectTypes = new SwitchDrivenType[targetObjectEnableMask.Count];
                 int j = 0;

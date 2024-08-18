@@ -8,7 +8,7 @@
         "UdonSharp.Editor",
         "Cyan.CyanTrigger",
         "Cyan.CyanTrigger.Editor",
-        "LazySwitch"
+        "LazySwitch.Runtime"
     ],
     "includePlatforms": [
         "Editor"
