@@ -1,10 +1,9 @@
 {
     "name": "LazySwitch",
-    "rootNamespace": "",
+    "rootNamespace": "JLChnToZ.VRC",
     "references": [
         "VRC.Udon",
-        "UdonSharp.Runtime",
-        "UdonSharp.Editor"
+        "UdonSharp.Runtime"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],

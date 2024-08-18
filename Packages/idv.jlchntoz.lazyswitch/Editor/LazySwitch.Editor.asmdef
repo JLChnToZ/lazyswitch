@@ -1,0 +1,30 @@
+{
+    "name": "LazySwitch.Editor",
+    "rootNamespace": "JLChnToZ.VRC",
+    "references": [
+        "VRC.Udon",
+        "VRC.Udon.Editor",
+        "UdonSharp.Runtime",
+        "UdonSharp.Editor",
+        "Cyan.CyanTrigger",
+        "Cyan.CyanTrigger.Editor",
+        "LazySwitch"
+    ],
+    "includePlatforms": [
+        "Editor"
+    ],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": false,
+    "defineConstraints": [],
+    "versionDefines": [
+        {
+            "name": "com.cyan.cyantrigger",
+            "expression": "",
+            "define": "CYAN_TRIGGER_IMPORTED"
+        }
+    ],
+    "noEngineReferences": false
+}
