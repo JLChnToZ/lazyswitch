@@ -24,8 +24,8 @@ namespace JLChnToZ.VRC {
             }
             if (lazySwitch.gameObject == gameObject)
                 lazySwitch.DisableInteractive = true; // You don't want the detection collider interactable.
-            var collider = GetComponent<Collider>();
-            collider.isTrigger = true; // Make sure the collider is a trigger.
+            foreach (var collider in GetComponents<Collider>())
+                collider.isTrigger = true; // Make sure the collider is a trigger.
             if (detectAllPlayers) {
                 if (enteredPlayers == null)
                     enteredPlayers = new DataDictionary();
