@@ -25,7 +25,7 @@ namespace JLChnToZ.VRC {
             var switchGroups = new Dictionary<LazySwitch, List<LazySwitch>>();
             var targetObjectEnableMask = new Dictionary<UnityObject, (SwitchDrivenType objectType, int onFlags, int offFlags)>();
             foreach (var sw in switches) {
-                if (!IsAvailableOnRuntime(sw.gameObject)) continue;
+                if (!IsAvailableOnRuntime(sw)) continue;
                 var masterSwitch = sw;
                 while (masterSwitch != null) {
                     var next = masterSwitch.masterSwitch;
@@ -100,9 +100,9 @@ namespace JLChnToZ.VRC {
             foreach (var kv in switchGroups) {
                 var masterSwitch = kv.Key;
                 var canidates = kv.Value;
-                if (!IsAvailableOnRuntime(masterSwitch.gameObject))
+                if (!IsAvailableOnRuntime(masterSwitch))
                     foreach (var sw in canidates)
-                        if (sw != masterSwitch && IsAvailableOnRuntime(sw.gameObject)) {
+                        if (sw != masterSwitch && IsAvailableOnRuntime(sw)) {
                             masterSwitch = sw;
                             break;
                         }
@@ -112,6 +112,9 @@ namespace JLChnToZ.VRC {
                     sw.masterSwitch = masterSwitch;
                     sw.state = masterSwitch.state;
                     sw.stateCount = masterSwitch.stateCount;
+#if VRC_ENABLE_PLAYER_PERSISTENCE
+                    sw.persistenceKey = null;
+#endif
                     sw.isSynced = false;
                 }
             }

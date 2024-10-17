@@ -2,6 +2,9 @@
 using UnityEngine.UI;
 using UnityEngine.Animations;
 using VRC.SDKBase;
+#if VRC_ENABLE_PLAYER_PERSISTENCE
+using VRC.SDK3.Persistence;
+#endif
 using VRC.Udon.Common.Interfaces;
 using UdonSharp;
 
@@ -22,6 +25,10 @@ namespace JLChnToZ.VRC {
         [SerializeField, HideInInspector] internal int[] targetObjectEnableMask;
         [SerializeField] internal int[] targetObjectGroupOffsets;
         [SerializeField] internal int stateCount;
+#if VRC_ENABLE_PLAYER_PERSISTENCE
+        [Tooltip("The optional key to save the state of this switch with player persistence.")]
+        [SerializeField] internal string persistenceKey;
+#endif
         [UdonSynced] byte syncedState;
 
         public int State {
@@ -35,6 +42,9 @@ namespace JLChnToZ.VRC {
                 if (state == value) return;
                 state = value;
                 UpdateAndSync();
+#if VRC_ENABLE_PLAYER_PERSISTENCE
+                SavePersistence();
+#endif
             }
         }
 
@@ -47,6 +57,18 @@ namespace JLChnToZ.VRC {
                 _UpdateState();
         }
 
+#if VRC_ENABLE_PLAYER_PERSISTENCE
+        public override void OnPlayerRestored(VRCPlayerApi player) {
+            if (!player.isLocal || string.IsNullOrEmpty(persistenceKey) || masterSwitch != null) return;
+            if (isSynced && !Networking.IsOwner(gameObject))
+                PlayerData.SetByte(persistenceKey, syncedState);
+            else if (PlayerData.HasKey(player, persistenceKey)) {
+                state = PlayerData.GetByte(player, persistenceKey);
+                UpdateAndSync();
+            }
+        }
+#endif
+
         public override void Interact() {
             if (masterSwitch != null) {
                 masterSwitch.Interact();
@@ -54,6 +76,9 @@ namespace JLChnToZ.VRC {
             }
             state = isRandomized ? Random.Range(0, stateCount) : (state + 1) % stateCount;
             UpdateAndSync();
+#if VRC_ENABLE_PLAYER_PERSISTENCE
+            SavePersistence();
+#endif
         }
 
         public override void OnPreSerialization() {
@@ -65,6 +90,9 @@ namespace JLChnToZ.VRC {
             if (!isSynced) return;
             state = syncedState;
             UpdateState();
+#if VRC_ENABLE_PLAYER_PERSISTENCE
+            SavePersistence();
+#endif
         }
 
         void UpdateAndSync() {
@@ -74,6 +102,13 @@ namespace JLChnToZ.VRC {
                 RequestSerialization();
             }
         }
+
+#if VRC_ENABLE_PLAYER_PERSISTENCE
+        void SavePersistence() {
+            if (string.IsNullOrEmpty(persistenceKey)) return;
+            PlayerData.SetByte(persistenceKey, (byte)state);
+        }
+#endif
 
         void UpdateState() {
             _UpdateState();

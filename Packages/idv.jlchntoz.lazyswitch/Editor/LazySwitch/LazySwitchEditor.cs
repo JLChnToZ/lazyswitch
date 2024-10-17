@@ -25,6 +25,9 @@ namespace JLChnToZ.VRC {
         static readonly List<(UnityObject component, SwitchDrivenType subType)> menuComponents = new List<(UnityObject, SwitchDrivenType)>();
         static GUIContent tempContent;
         SerializedProperty stateProp, isSyncedProp, isRandomizedProp, masterSwitchProp, targetObjectsProp, targetObjectTypesProp, targetObjectGroupOffsetsProp;
+#if VRC_ENABLE_PLAYER_PERSISTENCE
+        SerializedProperty persistenceKeyProp;
+#endif
         ReorderableList targetObjectsList;
         readonly List<Entry> targetObjectsEntries = new List<Entry>();
         int masterSwitchState;
@@ -68,6 +71,9 @@ namespace JLChnToZ.VRC {
             targetObjectsProp = serializedObject.FindProperty(nameof(LazySwitch.targetObjects));
             targetObjectTypesProp = serializedObject.FindProperty(nameof(LazySwitch.targetObjectTypes));
             targetObjectGroupOffsetsProp = serializedObject.FindProperty(nameof(LazySwitch.targetObjectGroupOffsets));
+#if VRC_ENABLE_PLAYER_PERSISTENCE
+            persistenceKeyProp = serializedObject.FindProperty(nameof(LazySwitch.persistenceKey));
+#endif
             if (targetObjectsList == null)
                 targetObjectsList = new ReorderableList(targetObjectsEntries, typeof(Entry)) {
                     drawHeaderCallback = DrawTargetObjectHeader,
@@ -104,6 +110,9 @@ namespace JLChnToZ.VRC {
                     EditorGUILayout.Toggle(isSyncedProp.displayName, masterSwitch.isSynced);
                     EditorGUILayout.Toggle(isRandomizedProp.displayName, masterSwitch.isRandomized);
                     EditorGUILayout.IntSlider(stateProp.displayName, masterSwitchState, 0, masterSwitch.stateCount - 1);
+#if VRC_ENABLE_PLAYER_PERSISTENCE
+                    EditorGUILayout.TextField(persistenceKeyProp.displayName, masterSwitch.persistenceKey);
+#endif
                 }
                 EditorGUILayout.HelpBox(masterSwitchMessage, MessageType.Info);
             } else {
@@ -112,11 +121,17 @@ namespace JLChnToZ.VRC {
                 var rect = EditorGUILayout.GetControlRect(true, EditorGUIUtility.singleLineHeight, GUI.skin.horizontalSlider);
                 using (var changed = new EditorGUI.ChangeCheckScope())
                 using (var prop = new EditorGUI.PropertyScope(rect, null, stateProp)) {
-                    rect = EditorGUI.PrefixLabel(rect, prop.content);
-                    int value = EditorGUI.IntSlider(rect, stateProp.intValue, 0, Mathf.Max(1, targetObjectGroupOffsetsProp.arraySize));
-                    masterSwitchState = value;
-                    if (changed.changed) stateProp.intValue = value;
+                    masterSwitchState = EditorGUI.IntSlider(rect, prop.content, stateProp.intValue, 0, Mathf.Max(1, targetObjectGroupOffsetsProp.arraySize));
+                    if (changed.changed) stateProp.intValue = masterSwitchState;
                 }
+#if VRC_ENABLE_PLAYER_PERSISTENCE
+                EditorGUILayout.PropertyField(persistenceKeyProp);
+                if (isSyncedProp.boolValue && !string.IsNullOrEmpty(persistenceKeyProp.stringValue))
+                    EditorGUILayout.HelpBox(
+                        "Persistence data will only get restored from the first joined player when used in synced mode.",
+                        MessageType.Info
+                    );
+#endif
             }
             EditorGUILayout.Space();
             using (new EditorGUI.DisabledScope(Application.isPlaying))
