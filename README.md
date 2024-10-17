@@ -6,6 +6,7 @@ This is a multi-purpose switch component for use in VRChat worlds. Here is its f
 - Can switch states by ordered or randomized.
 - Switch chaining, you can assign a "master switch" and when interact to either one, both will be synchroized.
 - Works with both local or global (synced) mode.
+- States can be saved with [Player Persistence API](https://vrc-persistence-docs.netlify.app/worlds/udon/persistence/) (currently supported in beta version)
 - It supports toggling these assets/components individually:
     - Game Objects
     - Udon Behaviours
