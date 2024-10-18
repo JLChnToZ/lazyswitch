@@ -43,29 +43,31 @@ namespace JLChnToZ.VRC {
                 state = value;
                 UpdateAndSync();
 #if VRC_ENABLE_PLAYER_PERSISTENCE
-                SavePersistence();
+                Save();
 #endif
             }
         }
 
         void OnEnable() {
-            if (masterSwitch == null) {
-                if (isSynced && !Networking.IsOwner(gameObject))
-                    state = syncedState;
-                UpdateState();
-            } else
+            if (masterSwitch != null) {
                 _UpdateState();
+                return;
+            }
+            if (isSynced && !Networking.IsOwner(gameObject)) {
+                if (!Networking.IsObjectReady(gameObject)) return;
+                state = syncedState;
+#if VRC_ENABLE_PLAYER_PERSISTENCE
+                Save();
+            } else {
+                Load(Networking.LocalPlayer);
+#endif
+            }
+            UpdateState();
         }
 
 #if VRC_ENABLE_PLAYER_PERSISTENCE
         public override void OnPlayerRestored(VRCPlayerApi player) {
-            if (!player.isLocal || string.IsNullOrEmpty(persistenceKey) || masterSwitch != null) return;
-            if (isSynced && !Networking.IsOwner(gameObject))
-                PlayerData.SetByte(persistenceKey, syncedState);
-            else if (PlayerData.HasKey(player, persistenceKey)) {
-                state = PlayerData.GetByte(player, persistenceKey);
-                UpdateAndSync();
-            }
+            if (player.isLocal && masterSwitch == null && Load(player)) UpdateAndSync();
         }
 #endif
 
@@ -77,7 +79,7 @@ namespace JLChnToZ.VRC {
             state = isRandomized ? Random.Range(0, stateCount) : (state + 1) % stateCount;
             UpdateAndSync();
 #if VRC_ENABLE_PLAYER_PERSISTENCE
-            SavePersistence();
+            Save();
 #endif
         }
 
@@ -91,7 +93,7 @@ namespace JLChnToZ.VRC {
             state = syncedState;
             UpdateState();
 #if VRC_ENABLE_PLAYER_PERSISTENCE
-            SavePersistence();
+            Save();
 #endif
         }
 
@@ -104,9 +106,21 @@ namespace JLChnToZ.VRC {
         }
 
 #if VRC_ENABLE_PLAYER_PERSISTENCE
-        void SavePersistence() {
+        void Save() {
             if (string.IsNullOrEmpty(persistenceKey)) return;
             PlayerData.SetByte(persistenceKey, (byte)state);
+        }
+
+        bool Load(VRCPlayerApi player) {
+            if (string.IsNullOrEmpty(persistenceKey)) return false;
+            if (isSynced && !Networking.IsOwner(gameObject)) {
+                PlayerData.SetByte(persistenceKey, syncedState);
+                return false;
+            }
+            if (!PlayerData.TryGetByte(player, persistenceKey, out var savedState))
+                return false;
+            state = savedState;
+            return true;
         }
 #endif
 
