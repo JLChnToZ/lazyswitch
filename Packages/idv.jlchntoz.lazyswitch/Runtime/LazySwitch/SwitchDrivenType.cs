@@ -39,4 +39,16 @@ namespace JLChnToZ.VRC {
         ParticleSystemCustomDataModule,
         ParticleSystem = -1, // Vaild only in editor
     }
+
+    public enum TriggerMode {
+        InteractLocal,
+        InteractGlobal,
+        LocalPlayerEnter,
+        LocalPlayerExit,
+        AnyPlayerEnter,
+        AnyPlayerExit,
+        FirstPlayerEnter,
+        LastPlayerExit,
+        Manual,
+    }
 }

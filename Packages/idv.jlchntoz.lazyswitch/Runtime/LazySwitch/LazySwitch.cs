@@ -28,7 +28,6 @@ namespace JLChnToZ.VRC {
 #if VRC_ENABLE_PLAYER_PERSISTENCE
         [Tooltip("The optional key to save the state of this switch with player persistence.")]
         [SerializeField] internal string persistenceKey;
-        bool isPersistenceSupported;
 #endif
         [UdonSynced] byte syncedState;
 
@@ -68,7 +67,6 @@ namespace JLChnToZ.VRC {
 
 #if VRC_ENABLE_PLAYER_PERSISTENCE
         public override void OnPlayerRestored(VRCPlayerApi player) {
-            isPersistenceSupported = true;
             if (player.isLocal && masterSwitch == null && Load(player)) UpdateAndSync();
         }
 #endif
@@ -109,12 +107,12 @@ namespace JLChnToZ.VRC {
 
 #if VRC_ENABLE_PLAYER_PERSISTENCE
         void Save() {
-            if (string.IsNullOrEmpty(persistenceKey) || !isPersistenceSupported) return;
+            if (string.IsNullOrEmpty(persistenceKey)) return;
             PlayerData.SetByte(persistenceKey, (byte)state);
         }
 
         bool Load(VRCPlayerApi player) {
-            if (string.IsNullOrEmpty(persistenceKey) || !isPersistenceSupported) return false;
+            if (string.IsNullOrEmpty(persistenceKey)) return false;
             if (isSynced && !Networking.IsOwner(gameObject)) {
                 PlayerData.SetByte(persistenceKey, syncedState);
                 return false;
