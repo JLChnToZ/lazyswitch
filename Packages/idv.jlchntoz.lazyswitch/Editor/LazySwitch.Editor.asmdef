@@ -8,6 +8,8 @@
         "UdonSharp.Editor",
         "Cyan.CyanTrigger",
         "Cyan.CyanTrigger.Editor",
+        "JLChnToZ.VRC.Foundation",
+        "JLChnToZ.VRC.Foundation.Editor",
         "LazySwitch.Runtime"
     ],
     "includePlatforms": [

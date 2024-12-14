@@ -7,10 +7,12 @@ using VRC.SDK3.Persistence;
 #endif
 using VRC.Udon.Common.Interfaces;
 using UdonSharp;
+using JLChnToZ.VRC.Foundation;
 
 namespace JLChnToZ.VRC {
     [AddComponentMenu("JLChnToZ/Lazy Switch")]
     [UdonBehaviourSyncMode(BehaviourSyncMode.Manual)]
+    [BindEvent(typeof(Button), nameof(Button.onClick), nameof(Interact))]
     public class LazySwitch : UdonSharpBehaviour {
         [SerializeField, Range(0, 1)] internal int state;
         [Tooltip("Will this switch synchronized across the network.")]

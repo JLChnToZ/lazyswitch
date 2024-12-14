@@ -3,7 +3,8 @@
     "rootNamespace": "JLChnToZ.VRC",
     "references": [
         "VRC.Udon",
-        "UdonSharp.Runtime"
+        "UdonSharp.Runtime",
+        "JLChnToZ.VRC.Foundation"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],

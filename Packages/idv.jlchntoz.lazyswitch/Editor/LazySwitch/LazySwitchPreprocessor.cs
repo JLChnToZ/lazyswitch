@@ -2,30 +2,22 @@ using System;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.SceneManagement;
-using UnityEditor.Build;
-using UnityEditor.Build.Reporting;
 using UdonSharp;
 using UdonSharpEditor;
+using JLChnToZ.VRC.Foundation.Editors;
 using UnityObject = UnityEngine.Object;
 
 namespace JLChnToZ.VRC {
     using static LazySwitchEditorUtils;
 
-    sealed class LazySwitchPreprocessor : IProcessSceneWithReport {
-        public int callbackOrder => 0;
+    sealed class LazySwitchPreprocessor : IPreprocessor {
+        public int Priority => 0;
 
-        public void OnProcessScene(Scene scene, BuildReport report) {
+        public void OnPreprocess(Scene scene) {
             var switches = new List<LazySwitch>();
-            var temp = new List<LazySwitch>();
-            foreach (var rootGameObject in scene.GetRootGameObjects()) {
-                rootGameObject.GetComponentsInChildren(true, temp);
-                switches.AddRange(temp);
-            }
-            if (switches.Count == 0) return;
             var switchGroups = new Dictionary<LazySwitch, List<LazySwitch>>();
             var targetObjectEnableMask = new Dictionary<UnityObject, (SwitchDrivenType objectType, int onFlags, int offFlags)>();
-            foreach (var sw in switches) {
-                if (!IsAvailableOnRuntime(sw)) continue;
+            foreach (var sw in Utils.IterateAllComponents<LazySwitch>(scene, false)) {
                 var masterSwitch = sw;
                 while (masterSwitch != null) {
                     var next = masterSwitch.masterSwitch;
