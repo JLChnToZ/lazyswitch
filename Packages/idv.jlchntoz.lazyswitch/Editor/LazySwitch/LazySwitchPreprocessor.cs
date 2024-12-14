@@ -6,6 +6,7 @@ using UdonSharp;
 using UdonSharpEditor;
 using JLChnToZ.VRC.Foundation.Editors;
 using UnityObject = UnityEngine.Object;
+using UnityEngine.UI;
 
 namespace JLChnToZ.VRC {
     using static LazySwitchEditorUtils;
@@ -68,11 +69,20 @@ namespace JLChnToZ.VRC {
                     if (!IsAvailableOnRuntime(destObj)) continue;
                     if (!targetObjectEnableMask.TryGetValue(destObj, out var flags)) flags = (objectType, 0, 0);
                     bool enabled = ub != null ? ub.enabled : IsActive(destObj, objectType);
-                    if (isCurrentState == enabled)
+                    if (isCurrentState == (sw.fixupMode != FixupMode.AsIs ? sw.targetObjectEnableMask[i] != 0 : enabled))
                         flags.onFlags |= currentStateMask;
                     else
                         flags.offFlags |= currentStateMask;
                     targetObjectEnableMask[destObj] = flags;
+                    if (sw.fixupMode == FixupMode.OnBuild) {
+                        bool isEnableOnConfig = sw.targetObjectEnableMask[i] != 0;
+                        if (isEnableOnConfig != enabled) {
+                            if (ub != null)
+                                ub.enabled = isEnableOnConfig;
+                            else
+                                ToggleActive(destObj, objectType);
+                        }
+                    }
                 }
                 masterSwitch.stateCount = Mathf.Max(masterSwitch.stateCount, sw.targetObjectGroupOffsets.Length);
                 sw.targetObjectGroupOffsets = Array.Empty<int>(); // Clean up on build to save space

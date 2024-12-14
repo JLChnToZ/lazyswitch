@@ -1,3 +1,5 @@
+using UnityEngine;
+
 namespace JLChnToZ.VRC {
     public enum SwitchDrivenType {
         Unknown = 0,
@@ -50,5 +52,14 @@ namespace JLChnToZ.VRC {
         FirstPlayerEnter,
         LastPlayerExit,
         Manual,
+    }
+
+    public enum FixupMode {
+        [InspectorName("Keep As-Is")]
+        AsIs,
+        [InspectorName("Update on World Build")]
+        OnBuild,
+        [InspectorName("Update on Switch Enable")]
+        OnEnable,
     }
 }

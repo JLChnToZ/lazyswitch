@@ -24,13 +24,16 @@ namespace JLChnToZ.VRC {
         static readonly List<Component> tempComponents = new List<Component>();
         static readonly List<(UnityObject component, SwitchDrivenType subType)> menuComponents = new List<(UnityObject, SwitchDrivenType)>();
         static GUIContent tempContent;
-        SerializedProperty stateProp, isSyncedProp, isRandomizedProp, masterSwitchProp, targetObjectsProp, targetObjectTypesProp, targetObjectGroupOffsetsProp;
+        SerializedProperty stateProp, isSyncedProp, isRandomizedProp, masterSwitchProp, fixupModeProp,
+            targetObjectsProp, targetObjectTypesProp, targetObjectGroupOffsetsProp, targetObjectEnableMaskProp;
 #if VRC_ENABLE_PLAYER_PERSISTENCE
         SerializedProperty persistenceKeyProp;
 #endif
         ReorderableList targetObjectsList;
         readonly List<Entry> targetObjectsEntries = new List<Entry>();
         int masterSwitchState;
+        bool syncActiveState;
+        bool entriesUpdated;
 
         byte LastSeparatorIndex {
             get {
@@ -71,6 +74,8 @@ namespace JLChnToZ.VRC {
             targetObjectsProp = serializedObject.FindProperty(nameof(LazySwitch.targetObjects));
             targetObjectTypesProp = serializedObject.FindProperty(nameof(LazySwitch.targetObjectTypes));
             targetObjectGroupOffsetsProp = serializedObject.FindProperty(nameof(LazySwitch.targetObjectGroupOffsets));
+            targetObjectEnableMaskProp = serializedObject.FindProperty(nameof(LazySwitch.targetObjectEnableMask));
+            fixupModeProp = serializedObject.FindProperty(nameof(LazySwitch.fixupMode));
 #if VRC_ENABLE_PLAYER_PERSISTENCE
             persistenceKeyProp = serializedObject.FindProperty(nameof(LazySwitch.persistenceKey));
 #endif
@@ -96,46 +101,71 @@ namespace JLChnToZ.VRC {
         public override void OnInspectorGUI() {
             if (UdonSharpGUI.DrawDefaultUdonSharpBehaviourHeader(target, false, false)) return;
             serializedObject.Update();
-            EditorGUILayout.PropertyField(masterSwitchProp);
-            if (masterSwitchProp.hasMultipleDifferentValues) {
-                using (new EditorGUI.DisabledScope(true)) {
+            entriesUpdated = false;
+            using (new EditorGUI.DisabledScope(Application.isPlaying)) {
+                EditorGUILayout.PropertyField(masterSwitchProp);
+                if (masterSwitchProp.hasMultipleDifferentValues) {
+                    using (new EditorGUI.DisabledScope(true)) {
+                        EditorGUILayout.PropertyField(isSyncedProp);
+                        EditorGUILayout.PropertyField(stateProp);
+                    }
+                } else if (masterSwitchProp.objectReferenceValue != null) {
+                    if (isSyncedProp.boolValue) isSyncedProp.boolValue = false;
+                    using (new EditorGUI.DisabledScope(true)) {
+                        var masterSwitch = masterSwitchProp.objectReferenceValue as LazySwitch;
+                        masterSwitchState = masterSwitch.state;
+                        EditorGUILayout.Toggle(isSyncedProp.displayName, masterSwitch.isSynced);
+                        EditorGUILayout.Toggle(isRandomizedProp.displayName, masterSwitch.isRandomized);
+                        EditorGUILayout.IntSlider(stateProp.displayName, masterSwitchState, 0, masterSwitch.stateCount - 1);
+#if VRC_ENABLE_PLAYER_PERSISTENCE
+                        EditorGUILayout.TextField(persistenceKeyProp.displayName, masterSwitch.persistenceKey);
+#endif
+                    }
+                    EditorGUILayout.HelpBox(masterSwitchMessage, MessageType.Info);
+                } else {
                     EditorGUILayout.PropertyField(isSyncedProp);
-                    EditorGUILayout.PropertyField(stateProp);
-                }
-            } else if (masterSwitchProp.objectReferenceValue != null) {
-                if (isSyncedProp.boolValue) isSyncedProp.boolValue = false;
-                using (new EditorGUI.DisabledScope(true)) {
-                    var masterSwitch = masterSwitchProp.objectReferenceValue as LazySwitch;
-                    masterSwitchState = masterSwitch.state;
-                    EditorGUILayout.Toggle(isSyncedProp.displayName, masterSwitch.isSynced);
-                    EditorGUILayout.Toggle(isRandomizedProp.displayName, masterSwitch.isRandomized);
-                    EditorGUILayout.IntSlider(stateProp.displayName, masterSwitchState, 0, masterSwitch.stateCount - 1);
+                    EditorGUILayout.PropertyField(isRandomizedProp);
+                    var rect = EditorGUILayout.GetControlRect(true, EditorGUIUtility.singleLineHeight, GUI.skin.horizontalSlider);
+                    using (var changed = new EditorGUI.ChangeCheckScope())
+                    using (var prop = new EditorGUI.PropertyScope(rect, null, stateProp)) {
+                        masterSwitchState = EditorGUI.IntSlider(rect, prop.content, stateProp.intValue, 0, Mathf.Max(1, targetObjectGroupOffsetsProp.arraySize));
+                        if (changed.changed) stateProp.intValue = masterSwitchState;
+                    }
 #if VRC_ENABLE_PLAYER_PERSISTENCE
-                    EditorGUILayout.TextField(persistenceKeyProp.displayName, masterSwitch.persistenceKey);
+                    EditorGUILayout.PropertyField(persistenceKeyProp);
+                    if (isSyncedProp.boolValue && !string.IsNullOrEmpty(persistenceKeyProp.stringValue))
+                        EditorGUILayout.HelpBox(
+                            "Persistence data will only get restored from the first joined player when used in synced mode.",
+                            MessageType.Info
+                        );
 #endif
                 }
-                EditorGUILayout.HelpBox(masterSwitchMessage, MessageType.Info);
-            } else {
-                EditorGUILayout.PropertyField(isSyncedProp);
-                EditorGUILayout.PropertyField(isRandomizedProp);
-                var rect = EditorGUILayout.GetControlRect(true, EditorGUIUtility.singleLineHeight, GUI.skin.horizontalSlider);
-                using (var changed = new EditorGUI.ChangeCheckScope())
-                using (var prop = new EditorGUI.PropertyScope(rect, null, stateProp)) {
-                    masterSwitchState = EditorGUI.IntSlider(rect, prop.content, stateProp.intValue, 0, Mathf.Max(1, targetObjectGroupOffsetsProp.arraySize));
-                    if (changed.changed) stateProp.intValue = masterSwitchState;
+                EditorGUILayout.PropertyField(fixupModeProp);
+                var fixupMode = (FixupMode)fixupModeProp.intValue;
+                switch (fixupMode) {
+                    case FixupMode.AsIs:
+                        EditorGUILayout.HelpBox(
+                            "The initial active state of target objects will be used as-is.\nThe toggle state here will be in sync with the target object active state.",
+                            MessageType.Info
+                        );
+                        break;
+                    case FixupMode.OnBuild:
+                        EditorGUILayout.HelpBox(
+                            "The actual object active state will be updated to match the default state here on world build.\nBeware this may break UDON scripts which require to be enabled at start but you set it to off as default here.",
+                            MessageType.Info
+                        );
+                        break;
+                    case FixupMode.OnEnable:
+                        EditorGUILayout.HelpBox(
+                            "The actual object active state will be updated to match the default state here when the switch is enabled on runtime.\nBeware this may break UDON scripts when you enable the target object in edit mode but also setting it to off as default here.",
+                            MessageType.Info
+                        );
+                        break;
                 }
-#if VRC_ENABLE_PLAYER_PERSISTENCE
-                EditorGUILayout.PropertyField(persistenceKeyProp);
-                if (isSyncedProp.boolValue && !string.IsNullOrEmpty(persistenceKeyProp.stringValue))
-                    EditorGUILayout.HelpBox(
-                        "Persistence data will only get restored from the first joined player when used in synced mode.",
-                        MessageType.Info
-                    );
-#endif
-            }
-            EditorGUILayout.Space();
-            using (new EditorGUI.DisabledScope(Application.isPlaying))
+                syncActiveState = fixupMode == FixupMode.AsIs;
                 targetObjectsList.DoLayoutList();
+            }
+            if (entriesUpdated) SaveEntries();
             if (targetObjectGroupOffsetsProp.hasMultipleDifferentValues ||
                 targetObjectsProp.hasMultipleDifferentValues ||
                 targetObjectTypesProp.hasMultipleDifferentValues)
@@ -174,9 +204,11 @@ namespace JLChnToZ.VRC {
                 rect.y += labelRect.height;
             }
             rect.height = EditorStyles.objectField.CalcHeight(GUIContent.none, EditorGUIUtility.currentViewWidth);
+            bool entryUpdated = false;
             if (isNotPlaying) {
+                bool isObjectActive = syncActiveState ? IsActive(entry.targetObject, entry.objectType) : entry.isActive;
                 var visibleIcon = EditorGUIUtility.IconContent(
-                    IsActive(entry.targetObject, entry.objectType) == (masterSwitchState == entry.separatorIndex) ?
+                    isObjectActive == (masterSwitchState == entry.separatorIndex) ?
                     "VisibilityOn" : "VisibilityOff"
                 );
                 var buttonStyle = EditorStyles.iconButton;
@@ -190,13 +222,20 @@ namespace JLChnToZ.VRC {
                 rect.xMin = buttonRect.xMax + 2;
                 rect.xMax = popupRect.xMin - 2;
                 using (new EditorGUI.DisabledScope(entry.targetObject == null)) {
-                    if (GUI.Button(buttonRect, visibleIcon, buttonStyle) && entry.targetObject != null) {
-                        Undo.RecordObject(entry.targetObject, "Toggle Active");
-                        ToggleActive(entry.targetObject, entry.objectType);
+                    if (GUI.Button(buttonRect, visibleIcon, buttonStyle)) {
+                        isObjectActive = !isObjectActive;
+                        if (syncActiveState && entry.targetObject != null) {
+                            Undo.RecordObject(entry.targetObject, "Toggle Active");
+                            ToggleActive(entry.targetObject, entry.objectType);
+                        }
                     }
                     using (new EditorGUI.DisabledScope(!(entry.targetObject is GameObject) && !(entry.targetObject is Component)))
                         if (GUI.Button(popupRect, tempContent, popupStyle))
                             ShowSelectComponentOrGameObjectMenu(popupRect, index);
+                }
+                if (entry.isActive != isObjectActive) {
+                    entry.isActive = isObjectActive;
+                    entryUpdated = true;
                 }
             }
             using (var changed = new EditorGUI.ChangeCheckScope()) {
@@ -210,9 +249,12 @@ namespace JLChnToZ.VRC {
                         entry.targetObject = newTargetObject;
                     else if (newTargetObject is Component c)
                         entry.targetObject = c.gameObject;
-                    targetObjectsEntries[index] = entry;
-                    SaveEntries();
+                    entryUpdated = true;
                 }
+            }
+            if (entryUpdated) {
+                targetObjectsEntries[index] = entry;
+                entriesUpdated = true;
             }
         }
 
@@ -388,10 +430,16 @@ namespace JLChnToZ.VRC {
             if (targetObjectGroupOffsetsProp.hasMultipleDifferentValues ||
                 targetObjectsProp.hasMultipleDifferentValues ||
                 targetObjectTypesProp.hasMultipleDifferentValues) return;
+            bool sizeUpdated = false;
             if (targetObjectTypesProp.arraySize != targetObjectsProp.arraySize) {
                 targetObjectTypesProp.arraySize = targetObjectsProp.arraySize;
-                serializedObject.ApplyModifiedProperties();
+                sizeUpdated = true;
             }
+            if (targetObjectEnableMaskProp.arraySize != targetObjectsProp.arraySize) {
+                targetObjectEnableMaskProp.arraySize = targetObjectsProp.arraySize;
+                sizeUpdated = true;
+            }
+            if (sizeUpdated) serializedObject.ApplyModifiedProperties();
             byte s = 0;
             for (int i = 0; i < targetObjectsProp.arraySize; i++) {
                 while (s < targetObjectGroupOffsetsProp.arraySize) {
@@ -401,6 +449,7 @@ namespace JLChnToZ.VRC {
                 targetObjectsEntries.Add(new Entry(
                     targetObjectsProp.GetArrayElementAtIndex(i).objectReferenceValue,
                     s,
+                    targetObjectEnableMaskProp.GetArrayElementAtIndex(i).intValue != 0,
                     (SwitchDrivenType)targetObjectTypesProp.GetArrayElementAtIndex(i).intValue
                 ));
             }
@@ -420,6 +469,8 @@ namespace JLChnToZ.VRC {
                     targetObjectsProp.GetArrayElementAtIndex(i).objectReferenceValue = entry.targetObject;
                     if (targetObjectTypesProp.arraySize <= i + 1) targetObjectTypesProp.arraySize = i + 1;
                     targetObjectTypesProp.GetArrayElementAtIndex(i).intValue = (int)entry.objectType;
+                    if (targetObjectEnableMaskProp.arraySize <= i + 1) targetObjectEnableMaskProp.arraySize = i + 1;
+                    targetObjectEnableMaskProp.GetArrayElementAtIndex(i).intValue = entry.isActive ? -1 : 0;
                     i++;
                 }
             if (targetObjectGroupOffsetsProp.arraySize > s) targetObjectGroupOffsetsProp.arraySize = s;
@@ -433,19 +484,22 @@ namespace JLChnToZ.VRC {
             public byte separatorIndex;
             public UnityObject targetObject;
             public SwitchDrivenType objectType;
+            public bool isActive;
 
             public Entry(byte separatorIndex) {
                 isSeparator = true;
                 this.separatorIndex = separatorIndex;
                 targetObject = null;
                 objectType = SwitchDrivenType.Unknown;
+                isActive = false;
             }
 
-            public Entry(UnityObject targetObject, byte separatorIndex, SwitchDrivenType objectType = SwitchDrivenType.Unknown) {
+            public Entry(UnityObject targetObject, byte separatorIndex, bool isActive = false, SwitchDrivenType objectType = SwitchDrivenType.Unknown) {
                 isSeparator = false;
                 this.separatorIndex = separatorIndex;
                 this.targetObject = targetObject;
                 this.objectType = objectType == SwitchDrivenType.Unknown ? GetTypeCode(targetObject) : objectType;
+                this.isActive = isActive;
             }
         }
     }

@@ -13,6 +13,7 @@ namespace JLChnToZ.VRC {
     [AddComponentMenu("JLChnToZ/Lazy Switch")]
     [UdonBehaviourSyncMode(BehaviourSyncMode.Manual)]
     [BindEvent(typeof(Button), nameof(Button.onClick), nameof(Interact))]
+    [BindEvent(typeof(Toggle), nameof(Toggle.onValueChanged), nameof(Interact))]
     public class LazySwitch : UdonSharpBehaviour {
         [SerializeField, Range(0, 1)] internal int state;
         [Tooltip("Will this switch synchronized across the network.")]
@@ -27,6 +28,7 @@ namespace JLChnToZ.VRC {
         [SerializeField, HideInInspector] internal int[] targetObjectEnableMask;
         [SerializeField] internal int[] targetObjectGroupOffsets;
         [SerializeField] internal int stateCount;
+        [SerializeField] internal FixupMode fixupMode;
 #if VRC_ENABLE_PLAYER_PERSISTENCE
         [Tooltip("The optional key to save the state of this switch with player persistence.")]
         [SerializeField] internal string persistenceKey;
