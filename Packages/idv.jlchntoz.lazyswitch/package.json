@@ -1,7 +1,7 @@
 {
   "name": "idv.jlchntoz.lazyswitch",
   "displayName": "Lazy Switch",
-  "version": "0.4.0",
+  "version": "0.4.1-beta.1",
   "unity": "2019.4",
   "description": "A maximum 32-states multi purpose switch for VRChat, designed for lazies.",
   "license": "MIT",
