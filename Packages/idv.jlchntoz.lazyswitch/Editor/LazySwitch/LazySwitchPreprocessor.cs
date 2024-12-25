@@ -55,7 +55,7 @@ namespace JLChnToZ.VRC {
                 i < objectsLength;
                 i++
             ) {
-                while (next >= i && s < offsetLength) {
+                while (i >= next && s < offsetLength) {
                     s++;
                     next = s < offsetLength ? sw.targetObjectGroupOffsets[s] : objectsLength;
                     isCurrentState = s == masterSwitch.state;
@@ -98,7 +98,7 @@ namespace JLChnToZ.VRC {
                     }
                 }
             }
-            masterSwitch.stateCount = Mathf.Max(masterSwitch.stateCount, sw.targetObjectGroupOffsets.Length);
+            masterSwitch.stateCount = Mathf.Max(masterSwitch.stateCount, sw.targetObjectGroupOffsets.Length + 1);
             sw.targetObjectGroupOffsets = Array.Empty<int>(); // Clean up on build to save space
             sw.targetObjects = new UnityObject[targetObjectEnableMask.Count];
             sw.targetObjectEnableMask = new int[targetObjectEnableMask.Count];
