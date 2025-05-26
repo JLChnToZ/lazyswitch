@@ -47,7 +47,6 @@ namespace JLChnToZ.VRC {
 
         static string GetBehaviourDisplayName(UnityObject obj, SwitchDrivenType subType = SwitchDrivenType.Unknown) {
             if (obj == null) return "<None>";
-            if (obj is GameObject) return "Game Object";
             if (obj is UdonBehaviour ub) {
                 var proxy = UdonSharpEditorUtility.GetProxyBehaviour(ub);
                 if (proxy != null) return ObjectNames.GetInspectorTitle(proxy);
@@ -62,7 +61,7 @@ namespace JLChnToZ.VRC {
             }
             if (obj is ParticleSystem)
                 return ObjectNames.NicifyVariableName(subType.ToString());
-            return ObjectNames.GetInspectorTitle(obj);
+            return ObjectNames.NicifyVariableName(obj.GetType().Name);
         }
 
         void OnEnable() {
@@ -102,7 +101,8 @@ namespace JLChnToZ.VRC {
             if (UdonSharpGUI.DrawDefaultUdonSharpBehaviourHeader(target, false, false)) return;
             serializedObject.Update();
             entriesUpdated = false;
-            using (new EditorGUI.DisabledScope(Application.isPlaying)) {
+            var isPlaying = EditorApplication.isPlayingOrWillChangePlaymode;
+            using (new EditorGUI.DisabledScope(isPlaying)) {
                 EditorGUILayout.PropertyField(masterSwitchProp);
                 if (masterSwitchProp.hasMultipleDifferentValues) {
                     using (new EditorGUI.DisabledScope(true)) {
@@ -116,7 +116,7 @@ namespace JLChnToZ.VRC {
                         masterSwitchState = masterSwitch.state;
                         EditorGUILayout.Toggle(isSyncedProp.displayName, masterSwitch.isSynced);
                         EditorGUILayout.Toggle(isRandomizedProp.displayName, masterSwitch.isRandomized);
-                        EditorGUILayout.IntSlider(stateProp.displayName, masterSwitchState, 0, masterSwitch.stateCount - 1);
+                        if (isPlaying) EditorGUILayout.IntField(stateProp.displayName, masterSwitchState);
 #if VRC_ENABLE_PLAYER_PERSISTENCE
                         EditorGUILayout.TextField(persistenceKeyProp.displayName, masterSwitch.persistenceKey);
 #endif
@@ -125,12 +125,8 @@ namespace JLChnToZ.VRC {
                 } else {
                     EditorGUILayout.PropertyField(isSyncedProp);
                     EditorGUILayout.PropertyField(isRandomizedProp);
-                    var rect = EditorGUILayout.GetControlRect(true, EditorGUIUtility.singleLineHeight, GUI.skin.horizontalSlider);
-                    using (var changed = new EditorGUI.ChangeCheckScope())
-                    using (var prop = new EditorGUI.PropertyScope(rect, null, stateProp)) {
-                        masterSwitchState = EditorGUI.IntSlider(rect, prop.content, stateProp.intValue, 0, Mathf.Max(1, targetObjectGroupOffsetsProp.arraySize));
-                        if (changed.changed) stateProp.intValue = masterSwitchState;
-                    }
+                    masterSwitchState = stateProp.intValue;
+                    if (isPlaying) EditorGUILayout.PropertyField(stateProp);
 #if VRC_ENABLE_PLAYER_PERSISTENCE
                     EditorGUILayout.PropertyField(persistenceKeyProp);
                     if (isSyncedProp.boolValue && !string.IsNullOrEmpty(persistenceKeyProp.stringValue))
@@ -163,6 +159,7 @@ namespace JLChnToZ.VRC {
                         break;
                 }
                 syncActiveState = fixupMode == FixupMode.AsIs;
+                EditorGUILayout.Space();
                 targetObjectsList.DoLayoutList();
             }
             if (entriesUpdated) SaveEntries();
@@ -177,9 +174,12 @@ namespace JLChnToZ.VRC {
             if (index < 0 || index >= targetObjectsEntries.Count) return 0;
             float height = 0;
             var entry = targetObjectsEntries[index];
-            if (entry.isSeparator || (index == 0 && !Application.isPlaying)) {
+            if (entry.isSeparator || (index == 0 && !EditorApplication.isPlayingOrWillChangePlaymode)) {
                 tempContent.text = $"State {entry.separatorIndex}";
-                height += EditorStyles.miniBoldLabel.CalcHeight(tempContent, EditorGUIUtility.currentViewWidth);
+                height += Mathf.Max(
+                    (targetObjectGroupOffsetsProp.arraySize < 1 ? EditorStyles.toggle : EditorStyles.radioButton).CalcHeight(GUIContent.none, 16F),
+                    EditorStyles.miniBoldLabel.CalcHeight(tempContent, EditorGUIUtility.currentViewWidth - 16F)
+                );
             }
             if (!entry.isSeparator)
                 height += EditorStyles.objectField.CalcHeight(GUIContent.none, EditorGUIUtility.currentViewWidth);
@@ -187,18 +187,35 @@ namespace JLChnToZ.VRC {
         }
 
         void DrawTargetObjectHeader(Rect rect) {
-            EditorGUI.LabelField(rect, targetObjectsProp.displayName, EditorStyles.boldLabel);
+            EditorGUI.LabelField(rect, EditorApplication.isPlayingOrWillChangePlaymode ? "Target Objects" : "States and Target Objects", EditorStyles.boldLabel);
             HandleDrop(rect);
         }
 
         void DrawTargetObjectElement(Rect rect, int index, bool isActive, bool isFocused) {
             var entry = targetObjectsEntries[index];
-            bool isNotPlaying = !Application.isPlaying;
+            bool isNotPlaying = !EditorApplication.isPlayingOrWillChangePlaymode;
             if (entry.isSeparator || (index == 0 && isNotPlaying)) {
                 var labelRect = rect;
+                bool isSingleState = targetObjectGroupOffsetsProp.arraySize < 1;
+                var toggleStyle = isSingleState ? EditorStyles.toggle : EditorStyles.radioButton;
                 var labelStyle = EditorStyles.miniBoldLabel;
                 tempContent.text = $"State {entry.separatorIndex}";
-                labelRect.height = labelStyle.CalcHeight(tempContent, EditorGUIUtility.currentViewWidth);
+                labelRect.height = Mathf.Max(
+                    toggleStyle.CalcHeight(GUIContent.none, 16F),
+                    labelStyle.CalcHeight(tempContent, EditorGUIUtility.currentViewWidth - 16F)
+                );
+                var toggleRect = labelRect;
+                toggleRect.width = 16F;
+                labelRect.xMin = toggleRect.xMax + 2;
+                using (new EditorGUI.DisabledScope(masterSwitchProp.objectReferenceValue))
+                using (var changed = new EditorGUI.ChangeCheckScope()) {
+                    bool isDefaultState = GUI.Toggle(toggleRect, masterSwitchState == entry.separatorIndex, GUIContent.none, toggleStyle);
+                    if (changed.changed) {
+                        if (isSingleState) stateProp.intValue = stateProp.intValue == 1 ? 0 : 1;
+                        else if (isDefaultState) stateProp.intValue = entry.separatorIndex;
+                        masterSwitchState = stateProp.intValue;
+                    }
+                }
                 EditorGUI.LabelField(labelRect, tempContent, labelStyle);
                 if (entry.isSeparator) return;
                 rect.y += labelRect.height;

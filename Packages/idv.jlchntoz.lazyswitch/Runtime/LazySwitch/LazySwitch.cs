@@ -15,7 +15,7 @@ namespace JLChnToZ.VRC {
     [BindEvent(typeof(Button), nameof(Button.onClick), nameof(Interact))]
     [BindEvent(typeof(Toggle), nameof(Toggle.onValueChanged), nameof(Interact))]
     public class LazySwitch : UdonSharpBehaviour {
-        [SerializeField, Range(0, 1)] internal int state;
+        [SerializeField] internal int state;
         [Tooltip("Will this switch synchronized across the network.")]
         [SerializeField] internal bool isSynced;
         [Tooltip("Randomize the state when interacted.")]
@@ -137,12 +137,15 @@ namespace JLChnToZ.VRC {
             }
         }
 
-        public void _UpdateState() {
+#if COMPILER_UDONSHARP
+        public
+#endif
+        void _UpdateState() {
             if (!enabled || !gameObject.activeInHierarchy) return;
             int stateMask = 1 << state;
             for (int i = 0, objectsLength = targetObjects.Length; i < objectsLength; i++) {
                 var targetObject = targetObjects[i];
-                if (targetObject == null) continue;
+                if (!Utilities.IsValid(targetObject)) continue;
                 bool shouldActive = (targetObjectEnableMask[i] & stateMask) != 0;
                 switch (targetObjectTypes[i]) {
                     // Only small number of types are supported
