@@ -39,7 +39,11 @@ namespace JLChnToZ.VRC {
         ParticleSystemLightsModule,
         ParticleSystemTrailModule,
         ParticleSystemCustomDataModule,
-        ParticleSystem = -1, // Vaild only in editor
+        AnimatorBool,
+        AnimatorTrigger,
+        // Vaild only in editor
+        ParticleSystem = -1,
+        Animator = -2,
     }
 
     public enum TriggerMode {

@@ -2,12 +2,16 @@
 using UnityEngine;
 using VRC.SDK3.Data;
 using VRC.SDKBase;
+using JLChnToZ.VRC.Foundation;
 
 namespace JLChnToZ.VRC {
+    /// <summary>
+    /// A component that detects player entering and exiting the collider, and changes the state of a LazySwitch accordingly.
+    /// </summary>
     [UdonBehaviourSyncMode(BehaviourSyncMode.NoVariableSync)]
     [RequireComponent(typeof(Collider))]
     public class PlayerEnterDetector : UdonSharpBehaviour {
-        [SerializeField] internal LazySwitch lazySwitch;
+        [SerializeField, Resolve(".")] internal LazySwitch lazySwitch;
         [Tooltip("The state to set when player enter. Set to -1 to disable.")]
         [SerializeField] int playerEnterState = -1;
         [Tooltip("The state to set when player exit. Set to -1 to disable.")]
@@ -27,13 +31,11 @@ namespace JLChnToZ.VRC {
             }
             if (lazySwitch.gameObject == gameObject)
                 lazySwitch.DisableInteractive = true; // You don't want the detection collider interactable.
-            foreach (var collider in GetComponents<Collider>())
-                collider.isTrigger = true; // Make sure the collider is a trigger.
             if (detectAllPlayers) {
-                if (enteredPlayers == null)
-                    enteredPlayers = new DataDictionary();
-                else
+                if (Utilities.IsValid(enteredPlayers))
                     enteredPlayers.Clear();
+                else
+                    enteredPlayers = new DataDictionary();
             }
         }
 

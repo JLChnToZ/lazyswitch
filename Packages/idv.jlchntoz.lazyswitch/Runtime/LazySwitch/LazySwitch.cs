@@ -10,6 +10,9 @@ using UdonSharp;
 using JLChnToZ.VRC.Foundation;
 
 namespace JLChnToZ.VRC {
+    /// <summary>
+    /// A multi-purpose switch.
+    /// </summary>
     [AddComponentMenu("JLChnToZ/Lazy Switch")]
     [UdonBehaviourSyncMode(BehaviourSyncMode.Manual)]
     [BindEvent(typeof(Button), nameof(Button.onClick), nameof(Interact))]
@@ -26,6 +29,7 @@ namespace JLChnToZ.VRC {
         [SerializeField] internal Object[] targetObjects;
         [SerializeField, HideInInspector] internal SwitchDrivenType[] targetObjectTypes;
         [SerializeField, HideInInspector] internal int[] targetObjectEnableMask;
+        [SerializeField, HideInInspector] internal string[] targetObjectAnimatorKeys;
         [SerializeField] internal int[] targetObjectGroupOffsets;
         [SerializeField] internal int stateCount;
         [SerializeField] internal FixupMode fixupMode;
@@ -34,11 +38,18 @@ namespace JLChnToZ.VRC {
         [SerializeField] internal string persistenceKey;
 #endif
         [UdonSynced] byte syncedState;
+        object[] resolvedTargetObjects;
+        int[] targetObjectAnimatorHashes;
+        bool hasInit;
+        int objectCount;
 
+        /// <summary>
+        /// The current state of this switch.
+        /// </summary>
         public int State {
             get => state;
             set {
-                if (masterSwitch != null) {
+                if (Utilities.IsValid(masterSwitch)) {
                     masterSwitch.State = value;
                     return;
                 }
@@ -53,7 +64,7 @@ namespace JLChnToZ.VRC {
         }
 
         void OnEnable() {
-            if (masterSwitch != null) {
+            if (Utilities.IsValid(masterSwitch)) {
                 _UpdateState();
                 return;
             }
@@ -69,15 +80,68 @@ namespace JLChnToZ.VRC {
             UpdateState();
         }
 
+        void Init() {
+            if (hasInit) return;
+            hasInit = true;
+            int animationCount = 0;
+            if (Utilities.IsValid(targetObjectAnimatorKeys)) {
+                animationCount = targetObjectAnimatorKeys.Length;
+                if (animationCount > 0) targetObjectAnimatorHashes = new int[animationCount];
+            }
+            objectCount = targetObjects.Length;
+            resolvedTargetObjects = new object[objectCount];
+            for (int i = 0; i < objectCount; i++) {
+                var targetObject = targetObjects[i];
+                if (!Utilities.IsValid(targetObject)) continue;
+                var ps = (ParticleSystem)targetObject;
+                switch (targetObjectTypes[i]) {
+                    case SwitchDrivenType.ParticleSystemCollisionModule: resolvedTargetObjects[i] = ps.collision; break;
+                    case SwitchDrivenType.ParticleSystemTriggerModule: resolvedTargetObjects[i] = ps.trigger; break;
+                    case SwitchDrivenType.ParticleSystemEmissionModule: resolvedTargetObjects[i] = ps.emission; break;
+                    case SwitchDrivenType.ParticleSystemShapeModule: resolvedTargetObjects[i] = ps.shape; break;
+                    case SwitchDrivenType.ParticleSystemVelocityOverLifetimeModule: resolvedTargetObjects[i] = ps.velocityOverLifetime; break;
+                    case SwitchDrivenType.ParticleSystemLimitVelocityOverLifetimeModule: resolvedTargetObjects[i] = ps.limitVelocityOverLifetime; break;
+                    case SwitchDrivenType.ParticleSystemInheritVelocityModule: resolvedTargetObjects[i] = ps.inheritVelocity; break;
+                    case SwitchDrivenType.ParticleSystemForceOverLifetimeModule: resolvedTargetObjects[i] = ps.forceOverLifetime; break;
+                    case SwitchDrivenType.ParticleSystemColorOverLifetimeModule: resolvedTargetObjects[i] = ps.colorOverLifetime; break;
+                    case SwitchDrivenType.ParticleSystemColorBySpeedModule: resolvedTargetObjects[i] = ps.colorBySpeed; break;
+                    case SwitchDrivenType.ParticleSystemSizeOverLifetimeModule: resolvedTargetObjects[i] = ps.sizeOverLifetime; break;
+                    case SwitchDrivenType.ParticleSystemSizeBySpeedModule: resolvedTargetObjects[i] = ps.sizeBySpeed; break;
+                    case SwitchDrivenType.ParticleSystemRotationOverLifetimeModule: resolvedTargetObjects[i] = ps.rotationOverLifetime; break;
+                    case SwitchDrivenType.ParticleSystemRotationBySpeedModule: resolvedTargetObjects[i] = ps.rotationBySpeed; break;
+                    case SwitchDrivenType.ParticleSystemExternalForcesModule: resolvedTargetObjects[i] = ps.externalForces; break;
+                    case SwitchDrivenType.ParticleSystemNoiseModule: resolvedTargetObjects[i] = ps.noise; break;
+                    case SwitchDrivenType.ParticleSystemLightsModule: resolvedTargetObjects[i] = ps.lights; break;
+                    case SwitchDrivenType.ParticleSystemTrailModule: resolvedTargetObjects[i] = ps.trails; break;
+                    case SwitchDrivenType.ParticleSystemCustomDataModule: resolvedTargetObjects[i] = ps.customData; break;
+                    default: resolvedTargetObjects[i] = targetObject; break;
+                }
+                if (i < animationCount) {
+                    var key = targetObjectAnimatorKeys[i];
+                    if (!string.IsNullOrEmpty(key)) targetObjectAnimatorHashes[i] = Animator.StringToHash(key);
+                }
+            }
+        }
+
 #if VRC_ENABLE_PLAYER_PERSISTENCE
         public override void OnPlayerRestored(VRCPlayerApi player) {
-            if (player.isLocal && masterSwitch == null && Load(player)) UpdateAndSync();
+            if (player.isLocal && !Utilities.IsValid(masterSwitch) && Load(player)) UpdateAndSync();
         }
 #endif
 
         public override void Interact() {
-            if (masterSwitch != null) {
-                masterSwitch.Interact();
+            if (gameObject.activeInHierarchy && enabled && !DisableInteractive) _SwitchState();
+        }
+
+        /// <summary>
+        /// Switch to the next state, or a random state if randomized.
+        /// </summary>
+        /// <remarks>
+        /// This method bypasses interaction checks, so it can be called from other scripts or events.
+        /// </remarks>
+        public void _SwitchState() {
+            if (Utilities.IsValid(masterSwitch)) {
+                masterSwitch._SwitchState();
                 return;
             }
             state = isRandomized ? Random.Range(0, stateCount) : (state + 1) % stateCount;
@@ -142,9 +206,10 @@ namespace JLChnToZ.VRC {
 #endif
         void _UpdateState() {
             if (!enabled || !gameObject.activeInHierarchy) return;
+            Init();
             int stateMask = 1 << state;
-            for (int i = 0, objectsLength = targetObjects.Length; i < objectsLength; i++) {
-                var targetObject = targetObjects[i];
+            for (int i = 0; i < objectCount; i++) {
+                var targetObject = resolvedTargetObjects[i];
                 if (!Utilities.IsValid(targetObject)) continue;
                 bool shouldActive = (targetObjectEnableMask[i] & stateMask) != 0;
                 switch (targetObjectTypes[i]) {
@@ -167,27 +232,32 @@ namespace JLChnToZ.VRC {
                         ((CustomRenderTexture)targetObject).updateMode = shouldActive ?
                             CustomRenderTextureUpdateMode.Realtime : CustomRenderTextureUpdateMode.OnDemand;
                         break;
-                    case SwitchDrivenType.ParticleSystemEmissionModule: { var m = ((ParticleSystem)targetObject).emission; m.enabled = shouldActive; } break;
-                    case SwitchDrivenType.ParticleSystemShapeModule: { var m = ((ParticleSystem)targetObject).shape; m.enabled = shouldActive; } break;
-                    case SwitchDrivenType.ParticleSystemVelocityOverLifetimeModule: { var m = ((ParticleSystem)targetObject).velocityOverLifetime; m.enabled = shouldActive; } break;
-                    case SwitchDrivenType.ParticleSystemLimitVelocityOverLifetimeModule: { var m = ((ParticleSystem)targetObject).limitVelocityOverLifetime; m.enabled = shouldActive; } break;
-                    case SwitchDrivenType.ParticleSystemInheritVelocityModule: { var m = ((ParticleSystem)targetObject).inheritVelocity; m.enabled = shouldActive; } break;
-                    case SwitchDrivenType.ParticleSystemForceOverLifetimeModule: { var m = ((ParticleSystem)targetObject).forceOverLifetime; m.enabled = shouldActive; } break;
-                    case SwitchDrivenType.ParticleSystemColorOverLifetimeModule: { var m = ((ParticleSystem)targetObject).colorOverLifetime; m.enabled = shouldActive; } break;
-                    case SwitchDrivenType.ParticleSystemColorBySpeedModule: { var m = ((ParticleSystem)targetObject).colorBySpeed; m.enabled = shouldActive; } break;
-                    case SwitchDrivenType.ParticleSystemSizeOverLifetimeModule: { var m = ((ParticleSystem)targetObject).sizeOverLifetime; m.enabled = shouldActive; } break;
-                    case SwitchDrivenType.ParticleSystemSizeBySpeedModule: { var m = ((ParticleSystem)targetObject).sizeBySpeed; m.enabled = shouldActive; } break;
-                    case SwitchDrivenType.ParticleSystemRotationOverLifetimeModule: { var m = ((ParticleSystem)targetObject).rotationOverLifetime; m.enabled = shouldActive; } break;
-                    case SwitchDrivenType.ParticleSystemRotationBySpeedModule: { var m = ((ParticleSystem)targetObject).rotationBySpeed; m.enabled = shouldActive; } break;
-                    case SwitchDrivenType.ParticleSystemExternalForcesModule: { var m = ((ParticleSystem)targetObject).externalForces; m.enabled = shouldActive; } break;
-                    case SwitchDrivenType.ParticleSystemNoiseModule: { var m = ((ParticleSystem)targetObject).noise; m.enabled = shouldActive; } break;
-                    case SwitchDrivenType.ParticleSystemCollisionModule: { var m = ((ParticleSystem)targetObject).collision; m.enabled = shouldActive; } break;
-                    case SwitchDrivenType.ParticleSystemTriggerModule: { var m = ((ParticleSystem)targetObject).trigger; m.enabled = shouldActive; } break;
-                    case SwitchDrivenType.ParticleSystemSubEmittersModule: { var m = ((ParticleSystem)targetObject).subEmitters; m.enabled = shouldActive; } break;
-                    case SwitchDrivenType.ParticleSystemTextureSheetAnimationModule: { var m = ((ParticleSystem)targetObject).textureSheetAnimation; m.enabled = shouldActive; } break;
-                    case SwitchDrivenType.ParticleSystemLightsModule: { var m = ((ParticleSystem)targetObject).lights; m.enabled = shouldActive; } break;
-                    case SwitchDrivenType.ParticleSystemTrailModule: { var m = ((ParticleSystem)targetObject).trails; m.enabled = shouldActive; } break;
-                    case SwitchDrivenType.ParticleSystemCustomDataModule: { var m = ((ParticleSystem)targetObject).customData; m.enabled = shouldActive; } break;
+                    case SwitchDrivenType.ParticleSystemEmissionModule: { var m = (ParticleSystem.EmissionModule)targetObject; m.enabled = shouldActive; } break;
+                    case SwitchDrivenType.ParticleSystemShapeModule: { var m = (ParticleSystem.ShapeModule)targetObject; m.enabled = shouldActive; } break;
+                    case SwitchDrivenType.ParticleSystemVelocityOverLifetimeModule: { var m = (ParticleSystem.VelocityOverLifetimeModule)targetObject; m.enabled = shouldActive; } break;
+                    case SwitchDrivenType.ParticleSystemLimitVelocityOverLifetimeModule: { var m = (ParticleSystem.LimitVelocityOverLifetimeModule)targetObject; m.enabled = shouldActive; } break;
+                    case SwitchDrivenType.ParticleSystemInheritVelocityModule: { var m = (ParticleSystem.InheritVelocityModule)targetObject; m.enabled = shouldActive; } break;
+                    case SwitchDrivenType.ParticleSystemForceOverLifetimeModule: { var m = (ParticleSystem.ForceOverLifetimeModule)targetObject; m.enabled = shouldActive; } break;
+                    case SwitchDrivenType.ParticleSystemColorOverLifetimeModule: { var m = (ParticleSystem.ColorOverLifetimeModule)targetObject; m.enabled = shouldActive; } break;
+                    case SwitchDrivenType.ParticleSystemColorBySpeedModule: { var m = (ParticleSystem.ColorBySpeedModule)targetObject; m.enabled = shouldActive; } break;
+                    case SwitchDrivenType.ParticleSystemSizeOverLifetimeModule: { var m = (ParticleSystem.SizeOverLifetimeModule)targetObject; m.enabled = shouldActive; } break;
+                    case SwitchDrivenType.ParticleSystemSizeBySpeedModule: { var m = (ParticleSystem.SizeBySpeedModule)targetObject; m.enabled = shouldActive; } break;
+                    case SwitchDrivenType.ParticleSystemRotationOverLifetimeModule: { var m = (ParticleSystem.RotationOverLifetimeModule)targetObject; m.enabled = shouldActive; } break;
+                    case SwitchDrivenType.ParticleSystemRotationBySpeedModule: { var m = (ParticleSystem.RotationBySpeedModule)targetObject; m.enabled = shouldActive; } break;
+                    case SwitchDrivenType.ParticleSystemExternalForcesModule: { var m = (ParticleSystem.ExternalForcesModule)targetObject; m.enabled = shouldActive; } break;
+                    case SwitchDrivenType.ParticleSystemNoiseModule: { var m = (ParticleSystem.NoiseModule)targetObject; m.enabled = shouldActive; } break;
+                    case SwitchDrivenType.ParticleSystemCollisionModule: { var m = (ParticleSystem.CollisionModule)targetObject; m.enabled = shouldActive; } break;
+                    case SwitchDrivenType.ParticleSystemTriggerModule: { var m = (ParticleSystem.TriggerModule)targetObject; m.enabled = shouldActive; } break;
+                    case SwitchDrivenType.ParticleSystemSubEmittersModule: { var m = (ParticleSystem.SubEmittersModule)targetObject; m.enabled = shouldActive; } break;
+                    case SwitchDrivenType.ParticleSystemTextureSheetAnimationModule: { var m = (ParticleSystem.TextureSheetAnimationModule)targetObject; m.enabled = shouldActive; } break;
+                    case SwitchDrivenType.ParticleSystemLightsModule: { var m = (ParticleSystem.LightsModule)targetObject; m.enabled = shouldActive; } break;
+                    case SwitchDrivenType.ParticleSystemTrailModule: { var m = (ParticleSystem.TrailModule)targetObject; m.enabled = shouldActive; } break;
+                    case SwitchDrivenType.ParticleSystemCustomDataModule: { var m = (ParticleSystem.CustomDataModule)targetObject; m.enabled = shouldActive; } break;
+                    case SwitchDrivenType.AnimatorBool: ((Animator)targetObject).SetBool(targetObjectAnimatorHashes[i], shouldActive); break;
+                    case SwitchDrivenType.AnimatorTrigger:
+                        if (shouldActive) ((Animator)targetObject).SetTrigger(targetObjectAnimatorHashes[i]);
+                        else ((Animator)targetObject).ResetTrigger(targetObjectAnimatorHashes[i]);
+                        break;
                 }
             }
         }

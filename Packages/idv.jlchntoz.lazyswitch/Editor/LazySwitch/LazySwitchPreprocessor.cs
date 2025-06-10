@@ -13,6 +13,7 @@ namespace JLChnToZ.VRC {
     using static LazySwitchEditorUtils;
 
     sealed class LazySwitchPreprocessor : IPreprocessor {
+        static readonly List<Collider> tempColliders = new List<Collider>();
         readonly List<LazySwitch> switches = new List<LazySwitch>();
         readonly HashSet<GameObject> gameObjects = new HashSet<GameObject>();
         readonly Dictionary<LazySwitch, List<LazySwitch>> switchGroups = new Dictionary<LazySwitch, List<LazySwitch>>();
@@ -48,6 +49,7 @@ namespace JLChnToZ.VRC {
                 masterSwitch = next;
             }
             bool isCurrentState = false;
+            int animatorKeysLength = 0;
             for (
                 int i = 0, s = -1, next = 0, currentStateMask = 0,
                     offsetLength = sw.targetObjectGroupOffsets.Length,
@@ -64,6 +66,7 @@ namespace JLChnToZ.VRC {
                 var srcObj = sw.targetObjects[i];
                 UnityObject destObj;
                 SwitchDrivenType objectType;
+                string parameter = null;
                 if (srcObj is UdonSharpBehaviour ub) {
                     destObj = UdonSharpEditorUtility.GetBackingUdonBehaviour(ub);
                     objectType = SwitchDrivenType.UdonBehaviour;
@@ -74,6 +77,18 @@ namespace JLChnToZ.VRC {
                         continue;
                     destObj = srcObj;
                     ub = null;
+                } else if (srcObj is Animator) {
+                    objectType = sw.targetObjectTypes[i];
+                    if (objectType < SwitchDrivenType.AnimatorBool ||
+                        objectType > SwitchDrivenType.AnimatorTrigger ||
+                        sw.targetObjectAnimatorKeys == null ||
+                        sw.targetObjectAnimatorKeys.Length <= i ||
+                        string.IsNullOrEmpty(sw.targetObjectAnimatorKeys[i]))
+                        continue;
+                    destObj = srcObj;
+                    parameter = sw.targetObjectAnimatorKeys[i];
+                    animatorKeysLength = i + 1;
+                    ub = null;
                 } else {
                     objectType = GetTypeCode(srcObj);
                     destObj = srcObj;
@@ -82,7 +97,7 @@ namespace JLChnToZ.VRC {
                 if (objectType == SwitchDrivenType.Unknown) continue;
                 if (!destObj.IsAvailableOnRuntime()) continue;
                 if (!targetObjectEnableMask.TryGetValue(destObj, out var flags)) flags = (objectType, 0, 0);
-                bool enabled = ub != null ? ub.enabled : IsActive(destObj, objectType);
+                bool enabled = ub != null ? ub.enabled : IsActive(destObj, objectType, parameter);
                 if (isCurrentState == (sw.fixupMode != FixupMode.AsIs ? sw.targetObjectEnableMask[i] != 0 : enabled))
                     flags.onFlags |= currentStateMask;
                 else
@@ -103,6 +118,10 @@ namespace JLChnToZ.VRC {
             sw.targetObjects = new UnityObject[targetObjectEnableMask.Count];
             sw.targetObjectEnableMask = new int[targetObjectEnableMask.Count];
             sw.targetObjectTypes = new SwitchDrivenType[targetObjectEnableMask.Count];
+            if (animatorKeysLength <= 0)
+                sw.targetObjectAnimatorKeys = Array.Empty<string>();
+            else if (sw.targetObjectAnimatorKeys.Length != animatorKeysLength)
+                Array.Resize(ref sw.targetObjectAnimatorKeys, animatorKeysLength);
             int j = 0;
             foreach (var kv in targetObjectEnableMask) {
                 sw.targetObjects[j] = kv.Key;
@@ -132,6 +151,9 @@ namespace JLChnToZ.VRC {
             if (!ped.anyOwnedObjects || !ped.detectAllPlayers) return;
             var sw = ped.lazySwitch;
             if (!Utils.IsAvailableOnRuntime(sw)) return;
+            ped.GetComponents(tempColliders);
+            foreach (var collider in tempColliders)
+                collider.isTrigger = true;
             foreach (var obj in sw.targetObjects)
                 if (obj != null && obj is GameObject go)
                     foreach (var component in go.IterateAllComponents<UdonBehaviour>(false))

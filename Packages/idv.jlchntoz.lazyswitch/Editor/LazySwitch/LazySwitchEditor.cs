@@ -11,6 +11,7 @@ using UdonSharpEditor;
 using Cyan.CT.Editor;
 #endif
 using UnityObject = UnityEngine.Object;
+using ACParameterType = UnityEngine.AnimatorControllerParameterType;
 
 namespace JLChnToZ.VRC {
     using static LazySwitchEditorUtils;
@@ -22,10 +23,10 @@ namespace JLChnToZ.VRC {
         const string multipleValuesMessage = "Unable to display values because they are different across multiple objects.\n" +
             "Attempt to add, reorder or change the values will cause all selected switches to have the same value.";
         static readonly List<Component> tempComponents = new List<Component>();
-        static readonly List<(UnityObject component, SwitchDrivenType subType)> menuComponents = new List<(UnityObject, SwitchDrivenType)>();
+        static readonly List<(UnityObject component, SwitchDrivenType subType, string parameter)> menuComponents = new List<(UnityObject, SwitchDrivenType, string)>();
         static GUIContent tempContent;
         SerializedProperty stateProp, isSyncedProp, isRandomizedProp, masterSwitchProp, fixupModeProp,
-            targetObjectsProp, targetObjectTypesProp, targetObjectGroupOffsetsProp, targetObjectEnableMaskProp;
+            targetObjectsProp, targetObjectTypesProp, targetObjectGroupOffsetsProp, targetObjectEnableMaskProp, targetObjectAnimatorKeysProp;
 #if VRC_ENABLE_PLAYER_PERSISTENCE
         SerializedProperty persistenceKeyProp;
 #endif
@@ -45,7 +46,13 @@ namespace JLChnToZ.VRC {
             }
         }
 
-        static string GetBehaviourDisplayName(UnityObject obj, SwitchDrivenType subType = SwitchDrivenType.Unknown) {
+        bool IsSingleState => targetObjectGroupOffsetsProp.arraySize switch {
+            0 => true,
+            1 => targetObjectGroupOffsetsProp.GetArrayElementAtIndex(0).intValue == 0,
+            _ => false,
+        };
+
+        static string GetBehaviourDisplayName(UnityObject obj, SwitchDrivenType subType = SwitchDrivenType.Unknown, string parameter = null) {
             if (obj == null) return "<None>";
             if (obj is UdonBehaviour ub) {
                 var proxy = UdonSharpEditorUtility.GetProxyBehaviour(ub);
@@ -61,6 +68,8 @@ namespace JLChnToZ.VRC {
             }
             if (obj is ParticleSystem)
                 return ObjectNames.NicifyVariableName(subType.ToString());
+            if (obj is Animator)
+                return $"{parameter} (Animator)";
             return ObjectNames.NicifyVariableName(obj.GetType().Name);
         }
 
@@ -74,6 +83,7 @@ namespace JLChnToZ.VRC {
             targetObjectTypesProp = serializedObject.FindProperty(nameof(LazySwitch.targetObjectTypes));
             targetObjectGroupOffsetsProp = serializedObject.FindProperty(nameof(LazySwitch.targetObjectGroupOffsets));
             targetObjectEnableMaskProp = serializedObject.FindProperty(nameof(LazySwitch.targetObjectEnableMask));
+            targetObjectAnimatorKeysProp = serializedObject.FindProperty(nameof(LazySwitch.targetObjectAnimatorKeys));
             fixupModeProp = serializedObject.FindProperty(nameof(LazySwitch.fixupMode));
 #if VRC_ENABLE_PLAYER_PERSISTENCE
             persistenceKeyProp = serializedObject.FindProperty(nameof(LazySwitch.persistenceKey));
@@ -177,7 +187,7 @@ namespace JLChnToZ.VRC {
             if (entry.isSeparator || (index == 0 && !EditorApplication.isPlayingOrWillChangePlaymode)) {
                 tempContent.text = $"State {entry.separatorIndex}";
                 height += Mathf.Max(
-                    (targetObjectGroupOffsetsProp.arraySize < 1 ? EditorStyles.toggle : EditorStyles.radioButton).CalcHeight(GUIContent.none, 16F),
+                    (IsSingleState ? EditorStyles.toggle : EditorStyles.radioButton).CalcHeight(GUIContent.none, 16F),
                     EditorStyles.miniBoldLabel.CalcHeight(tempContent, EditorGUIUtility.currentViewWidth - 16F)
                 );
             }
@@ -196,7 +206,7 @@ namespace JLChnToZ.VRC {
             bool isNotPlaying = !EditorApplication.isPlayingOrWillChangePlaymode;
             if (entry.isSeparator || (index == 0 && isNotPlaying)) {
                 var labelRect = rect;
-                bool isSingleState = targetObjectGroupOffsetsProp.arraySize < 1;
+                bool isSingleState = IsSingleState;
                 var toggleStyle = isSingleState ? EditorStyles.toggle : EditorStyles.radioButton;
                 var labelStyle = EditorStyles.miniBoldLabel;
                 tempContent.text = $"State {entry.separatorIndex}";
@@ -223,15 +233,15 @@ namespace JLChnToZ.VRC {
             rect.height = EditorStyles.objectField.CalcHeight(GUIContent.none, EditorGUIUtility.currentViewWidth);
             bool entryUpdated = false;
             if (isNotPlaying) {
-                bool isObjectActive = syncActiveState ? IsActive(entry.targetObject, entry.objectType) : entry.isActive;
+                bool isCurrentState = masterSwitchState == entry.separatorIndex;
+                bool isObjectActive = syncActiveState ? IsActive(entry.targetObject, entry.objectType, entry.parameter, isCurrentState) : entry.isActive;
                 var visibleIcon = EditorGUIUtility.IconContent(
-                    isObjectActive == (masterSwitchState == entry.separatorIndex) ?
-                    "VisibilityOn" : "VisibilityOff"
+                    isObjectActive == isCurrentState ? "VisibilityOn" : "VisibilityOff"
                 );
                 var buttonStyle = EditorStyles.iconButton;
                 var buttonRect = rect;
                 buttonRect.size = buttonStyle.CalcSize(visibleIcon);
-                tempContent.text = entry.targetObject == null ? "None" : GetBehaviourDisplayName(entry.targetObject, entry.objectType);
+                tempContent.text = entry.targetObject == null ? "None" : GetBehaviourDisplayName(entry.targetObject, entry.objectType, entry.parameter);
                 var popupStyle = EditorStyles.popup;
                 var popupRect = rect;
                 popupRect.size = popupStyle.CalcSize(tempContent);
@@ -336,6 +346,7 @@ namespace JLChnToZ.VRC {
             var targetObject = targetObjectsEntries[index].targetObject;
             if (targetObject == null) return;
             var targetType = targetObjectsEntries[index].objectType;
+            var targetParameter = targetObjectsEntries[index].parameter;
             tempComponents.Clear();
             if (targetObject is GameObject go)
                 go.GetComponents(tempComponents);
@@ -344,7 +355,7 @@ namespace JLChnToZ.VRC {
                 go = c.gameObject;
             } else return;
             menuComponents.Clear();
-            menuComponents.Add((go, SwitchDrivenType.GameObject));
+            menuComponents.Add((go, SwitchDrivenType.GameObject, null));
             foreach (var component in tempComponents) {
                 if (component is IUdonEventReceiver) {
                     MonoBehaviour obj = null;
@@ -353,29 +364,43 @@ namespace JLChnToZ.VRC {
                         if (obj == null) obj = ub;
                     }
                     if (obj == null) continue;
-                    menuComponents.Add((obj, SwitchDrivenType.UdonBehaviour));
+                    menuComponents.Add((obj, SwitchDrivenType.UdonBehaviour, null));
                     continue;
                 }
                 if (component is ParticleSystem) {
                     for (var st = SwitchDrivenType.ParticleSystemEmissionModule;
                         st <= SwitchDrivenType.ParticleSystemCustomDataModule;
                         st++)
-                        menuComponents.Add((component, st));
+                        menuComponents.Add((component, st, null));
+                    continue;
+                }
+                if (component is Animator animator) {
+                    foreach (var parameter in animator.parameters)
+                        switch (parameter.type) {
+                            case ACParameterType.Bool:
+                                menuComponents.Add((animator, SwitchDrivenType.AnimatorBool, parameter.name));
+                                break;
+                            case ACParameterType.Trigger:
+                                menuComponents.Add((animator, SwitchDrivenType.AnimatorTrigger, parameter.name));
+                                break;
+                            default:
+                                continue;
+                        }
                     continue;
                 }
                 var type = GetTypeCode(component);
                 if (type == SwitchDrivenType.Unknown) continue;
-                menuComponents.Add((component, type));
+                menuComponents.Add((component, type, null));
             }
             int count = menuComponents.Count;
             var options = new string[count];
             bool[] enabled = new bool[count], separator = new bool[count];
             int[] selected = null;
             for (int i = 0; i < count; i++) {
-                var (entry, subType) = menuComponents[i];
-                options[i] = GetBehaviourDisplayName(entry, subType);
+                var (entry, subType, parameter) = menuComponents[i];
+                options[i] = GetBehaviourDisplayName(entry, subType, parameter);
                 enabled[i] = count > 1;
-                if (entry == targetObject && subType == targetType) {
+                if (entry == targetObject && subType == targetType && ParameterEquals(parameter, targetParameter)) {
                     if (selected == null)
                         selected = new[] { i };
                     else
@@ -388,11 +413,15 @@ namespace JLChnToZ.VRC {
             );
         }
 
+        static bool ParameterEquals(string a, string b) =>
+            string.IsNullOrEmpty(a) ? string.IsNullOrEmpty(b) :
+            !string.IsNullOrEmpty(b) && a.Equals(b, StringComparison.Ordinal);
+
         void OnSelectComponentOrGameObject(object boxedIndex, string[] options, int selected) {
             if (selected < 0 || selected >= menuComponents.Count) return;
             int index = (int)boxedIndex;
             var entry = targetObjectsEntries[index];
-            (entry.targetObject, entry.objectType) = menuComponents[selected];
+            (entry.targetObject, entry.objectType, entry.parameter) = menuComponents[selected];
             targetObjectsEntries[index] = entry;
             SaveEntries();
         }
@@ -456,6 +485,10 @@ namespace JLChnToZ.VRC {
                 targetObjectEnableMaskProp.arraySize = targetObjectsProp.arraySize;
                 sizeUpdated = true;
             }
+            if (targetObjectAnimatorKeysProp.arraySize != targetObjectsProp.arraySize) {
+                targetObjectAnimatorKeysProp.arraySize = targetObjectsProp.arraySize;
+                sizeUpdated = true;
+            }
             if (sizeUpdated) serializedObject.ApplyModifiedProperties();
             byte s = 0;
             for (int i = 0; i < targetObjectsProp.arraySize; i++) {
@@ -467,7 +500,8 @@ namespace JLChnToZ.VRC {
                     targetObjectsProp.GetArrayElementAtIndex(i).objectReferenceValue,
                     s,
                     targetObjectEnableMaskProp.GetArrayElementAtIndex(i).intValue != 0,
-                    (SwitchDrivenType)targetObjectTypesProp.GetArrayElementAtIndex(i).intValue
+                    (SwitchDrivenType)targetObjectTypesProp.GetArrayElementAtIndex(i).intValue,
+                    targetObjectAnimatorKeysProp.GetArrayElementAtIndex(i).stringValue
                 ));
             }
             while (s < targetObjectGroupOffsetsProp.arraySize)
@@ -488,6 +522,8 @@ namespace JLChnToZ.VRC {
                     targetObjectTypesProp.GetArrayElementAtIndex(i).intValue = (int)entry.objectType;
                     if (targetObjectEnableMaskProp.arraySize <= i + 1) targetObjectEnableMaskProp.arraySize = i + 1;
                     targetObjectEnableMaskProp.GetArrayElementAtIndex(i).intValue = entry.isActive ? -1 : 0;
+                    if (targetObjectAnimatorKeysProp.arraySize <= i + 1) targetObjectAnimatorKeysProp.arraySize = i + 1;
+                    targetObjectAnimatorKeysProp.GetArrayElementAtIndex(i).stringValue = entry.parameter;
                     i++;
                 }
             if (targetObjectGroupOffsetsProp.arraySize > s) targetObjectGroupOffsetsProp.arraySize = s;
@@ -501,6 +537,7 @@ namespace JLChnToZ.VRC {
             public byte separatorIndex;
             public UnityObject targetObject;
             public SwitchDrivenType objectType;
+            public string parameter;
             public bool isActive;
 
             public Entry(byte separatorIndex) {
@@ -509,14 +546,16 @@ namespace JLChnToZ.VRC {
                 targetObject = null;
                 objectType = SwitchDrivenType.Unknown;
                 isActive = false;
+                parameter = null;
             }
 
-            public Entry(UnityObject targetObject, byte separatorIndex, bool isActive = false, SwitchDrivenType objectType = SwitchDrivenType.Unknown) {
+            public Entry(UnityObject targetObject, byte separatorIndex, bool isActive = false, SwitchDrivenType objectType = SwitchDrivenType.Unknown, string parameter = null) {
                 isSeparator = false;
                 this.separatorIndex = separatorIndex;
                 this.targetObject = targetObject;
                 this.objectType = objectType == SwitchDrivenType.Unknown ? GetTypeCode(targetObject) : objectType;
                 this.isActive = isActive;
+                this.parameter = parameter;
             }
         }
     }

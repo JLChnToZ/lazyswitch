@@ -24,14 +24,20 @@ namespace JLChnToZ.VRC {
             obj is VRC_Pickup ? SwitchDrivenType.VRCPickup :
             obj is CustomRenderTexture ? SwitchDrivenType.CustomRenderTexture :
             obj is ParticleSystem ? SwitchDrivenType.ParticleSystem :
+            obj is Animator ? SwitchDrivenType.Animator :
             SwitchDrivenType.Unknown;
 
-        public static bool IsActive(UnityObject obj, SwitchDrivenType subType) => obj != null && (
+        public static bool IsActive(UnityObject obj, SwitchDrivenType subType, string parameter, bool isCurrentState = false) => obj != null && (
             obj is GameObject gameObject ? gameObject.activeSelf :
             obj is IConstraint constraint ? constraint.constraintActive :
             obj is Selectable selectable ? selectable.interactable :
             obj is VRC_Pickup pickup ? pickup.pickupable :
             obj is Rigidbody rigidbody ? !rigidbody.isKinematic :
+            obj is Animator animator ? subType switch {
+                SwitchDrivenType.AnimatorBool => GetAnimatorBool(animator, parameter),
+                SwitchDrivenType.AnimatorTrigger => isCurrentState,
+                _ => true,
+            } :
             obj is Behaviour behaviour ? behaviour.enabled :
             obj is CustomRenderTexture crt ? crt.updateMode == CustomRenderTextureUpdateMode.Realtime :
             obj is ParticleSystem ps ? subType switch {
@@ -61,6 +67,15 @@ namespace JLChnToZ.VRC {
             true
         );
 
+        static bool GetAnimatorBool(Animator animator, string parameter) {
+            var parameters = animator.parameters;
+            foreach (var param in parameters)
+                if (param.name == parameter &&
+                    param.type == AnimatorControllerParameterType.Bool)
+                    return param.defaultBool;
+            return false;
+        }
+
         public static void ToggleActive(UnityObject obj, SwitchDrivenType subType) {
             if (obj == null) return;
             if (obj is GameObject gameObject) gameObject.SetActive(!gameObject.activeSelf);
@@ -68,6 +83,7 @@ namespace JLChnToZ.VRC {
             else if (obj is Selectable selectable) selectable.interactable = !selectable.interactable;
             else if (obj is VRC_Pickup pickup) pickup.pickupable = !pickup.pickupable;
             else if (obj is Rigidbody rigidbody) rigidbody.isKinematic = !rigidbody.isKinematic;
+            else if (obj is Animator) return;
             else if (obj is Behaviour behaviour) behaviour.enabled = !behaviour.enabled;
             else if (obj is CustomRenderTexture crt)
                 crt.updateMode = crt.updateMode == CustomRenderTextureUpdateMode.Realtime ?
