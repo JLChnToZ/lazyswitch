@@ -12,10 +12,10 @@ namespace JLChnToZ.VRC {
     [RequireComponent(typeof(Collider))]
     public class PlayerEnterDetector : UdonSharpBehaviour {
         [SerializeField, Resolve(".")] internal LazySwitch lazySwitch;
-        [Tooltip("The state to set when player enter. Set to -1 to disable.")]
-        [SerializeField] int playerEnterState = -1;
-        [Tooltip("The state to set when player exit. Set to -1 to disable.")]
-        [SerializeField] int playerExitState = -1;
+        [Tooltip("The state to set when player enter.")]
+        [SerializeField, ToggleAndNumberField(DisabledText = "(No Change)")] int playerEnterState = -1;
+        [Tooltip("The state to set when player exit.")]
+        [SerializeField, ToggleAndNumberField(DisabledText = "(No Change)")] int playerExitState = -1;
         [Tooltip("Detect all players in the world.\nWhen enabled, state changes only when the first player enter or the last player exit.")]
         [SerializeField] internal bool detectAllPlayers = false;
         [Tooltip("(Experimental) Only trigger enter when current player owns any chidren of the game objects defined in the lazy switch, or the entering player is the local player.\nRequire to enable 'Detect All Players'.")]
