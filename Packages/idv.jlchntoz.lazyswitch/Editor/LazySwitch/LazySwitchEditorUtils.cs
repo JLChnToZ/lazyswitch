@@ -124,13 +124,6 @@ namespace JLChnToZ.VRC {
             if (target == null) return;
             var udon = UdonSharpEditorUtility.GetBackingUdonBehaviour(target);
             if (udon == null) return;
-            if (!target.isSynced) {
-                if (udon.SyncMethod != Networking.SyncType.None) {
-                    udon.SyncMethod = Networking.SyncType.None;
-                    PrefabUtility.RecordPrefabInstancePropertyModifications(udon);
-                }
-                return;
-            }
             int continuousCount = 0, manualCount = 0;
             if (target.TryGetComponent(out VRCObjectSync _)) continuousCount++;
             target.GetComponents(tempUdonBehaviours);
@@ -158,7 +151,9 @@ namespace JLChnToZ.VRC {
                         break;
                 }
             }
-            var syncMethod = continuousCount > manualCount ?
+            var syncMethod = !target.isSynced && continuousCount == 0 && manualCount == 0 ?
+                Networking.SyncType.None :
+                continuousCount > manualCount ?
                 Networking.SyncType.Continuous :
                 Networking.SyncType.Manual;
             if (udon.SyncMethod != syncMethod) {
