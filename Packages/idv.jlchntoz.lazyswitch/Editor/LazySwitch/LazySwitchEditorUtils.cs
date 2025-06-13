@@ -1,12 +1,19 @@
+using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
 using UnityEngine.Animations;
 using VRC.SDKBase;
+using VRC.SDK3.Components;
+using VRC.Udon;
 using VRC.Udon.Common.Interfaces;
+using UdonSharp;
+using UdonSharpEditor;
 using UnityObject = UnityEngine.Object;
+using UnityEditor;
 
 namespace JLChnToZ.VRC {
     static class LazySwitchEditorUtils {
+        static readonly List<UdonBehaviour> tempUdonBehaviours = new List<UdonBehaviour>();
         public static SwitchDrivenType GetTypeCode(UnityObject obj) =>
             obj is GameObject ? SwitchDrivenType.GameObject :
             obj is IUdonEventReceiver ? SwitchDrivenType.UdonBehaviour :
@@ -111,6 +118,53 @@ namespace JLChnToZ.VRC {
                     case SwitchDrivenType.ParticleSystemTrailModule: { var m = ps.trails; m.enabled = !m.enabled; } break;
                     case SwitchDrivenType.ParticleSystemCustomDataModule: { var m = ps.customData; m.enabled = !m.enabled; } break;
                 }
+        }
+
+        public static void CheckAndUpdateSyncMode(LazySwitch target) {
+            if (target == null) return;
+            var udon = UdonSharpEditorUtility.GetBackingUdonBehaviour(target);
+            if (udon == null) return;
+            if (!target.isSynced) {
+                if (udon.SyncMethod != Networking.SyncType.None) {
+                    udon.SyncMethod = Networking.SyncType.None;
+                    PrefabUtility.RecordPrefabInstancePropertyModifications(udon);
+                }
+                return;
+            }
+            int continuousCount = 0, manualCount = 0;
+            if (target.TryGetComponent(out VRCObjectSync _)) continuousCount++;
+            target.GetComponents(tempUdonBehaviours);
+            foreach (var other in tempUdonBehaviours) {
+                if (other == udon) continue;
+                if (other.programSource != null &&
+                    other.programSource is UdonSharpProgramAsset otherProgram)
+                    switch (otherProgram.behaviourSyncMode) {
+                        case BehaviourSyncMode.None:
+                        case BehaviourSyncMode.NoVariableSync:
+                            continue;
+                        case BehaviourSyncMode.Continuous:
+                            continuousCount++;
+                            continue;
+                        case BehaviourSyncMode.Manual:
+                            manualCount++;
+                            continue;
+                    }
+                switch (other.SyncMethod) {
+                    case Networking.SyncType.Continuous:
+                        continuousCount++;
+                        break;
+                    case Networking.SyncType.Manual:
+                        manualCount++;
+                        break;
+                }
+            }
+            var syncMethod = continuousCount > manualCount ?
+                Networking.SyncType.Continuous :
+                Networking.SyncType.Manual;
+            if (udon.SyncMethod != syncMethod) {
+                udon.SyncMethod = syncMethod;
+                PrefabUtility.RecordPrefabInstancePropertyModifications(udon);
+            }
         }
     }
 }

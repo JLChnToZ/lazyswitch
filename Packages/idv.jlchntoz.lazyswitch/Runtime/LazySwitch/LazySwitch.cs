@@ -8,23 +8,21 @@ using VRC.SDK3.Persistence;
 using VRC.Udon.Common.Interfaces;
 using UdonSharp;
 using JLChnToZ.VRC.Foundation;
+using JLChnToZ.VRC.Foundation.I18N;
 
 namespace JLChnToZ.VRC {
     /// <summary>
     /// A multi-purpose switch.
     /// </summary>
     [AddComponentMenu("JLChnToZ/Lazy Switch")]
-    [UdonBehaviourSyncMode(BehaviourSyncMode.Manual)]
     [BindEvent(typeof(Button), nameof(Button.onClick), nameof(Interact))]
     [BindEvent(typeof(Toggle), nameof(Toggle.onValueChanged), nameof(Interact))]
     public class LazySwitch : UdonSharpBehaviour {
+        [SerializeField, UdonMeta(UdonMetaAttributeType.NetworkSyncModeManual)] bool isManualSync;
         [SerializeField] internal int state;
-        [Tooltip("Will this switch synchronized across the network.")]
-        [SerializeField] internal bool isSynced;
-        [Tooltip("Randomize the state when interacted.")]
-        [SerializeField] internal bool isRandomized;
-        [Tooltip("Link this switch to other switch, both switches will synchronize their state.")]
-        [SerializeField] internal LazySwitch masterSwitch;
+        [SerializeField, LocalizedLabel] internal bool isSynced;
+        [SerializeField, LocalizedLabel] internal bool isRandomized;
+        [SerializeField, LocalizedLabel] internal LazySwitch masterSwitch;
         [SerializeField, HideInInspector] internal LazySwitch[] slaveSwitches;
         [SerializeField] internal Object[] targetObjects;
         [SerializeField, HideInInspector] internal SwitchDrivenType[] targetObjectTypes;
@@ -32,10 +30,9 @@ namespace JLChnToZ.VRC {
         [SerializeField, HideInInspector] internal string[] targetObjectAnimatorKeys;
         [SerializeField] internal int[] targetObjectGroupOffsets;
         [SerializeField] internal int stateCount;
-        [SerializeField] internal FixupMode fixupMode;
+        [SerializeField, LocalizedLabel, LocalizedEnum] internal FixupMode fixupMode;
 #if VRC_ENABLE_PLAYER_PERSISTENCE
-        [Tooltip("The optional key to save the state of this switch with player persistence.")]
-        [SerializeField] internal string persistenceKey;
+        [SerializeField, LocalizedLabel] internal string persistenceKey;
 #endif
         [UdonSynced] byte syncedState;
         object[] resolvedTargetObjects;
@@ -169,7 +166,7 @@ namespace JLChnToZ.VRC {
             UpdateState();
             if (isSynced) {
                 if (!Networking.IsOwner(gameObject)) Networking.SetOwner(Networking.LocalPlayer, gameObject);
-                RequestSerialization();
+                if (isManualSync) RequestSerialization();
             }
         }
 

@@ -3,6 +3,7 @@ using UnityEngine;
 using VRC.SDK3.Data;
 using VRC.SDKBase;
 using JLChnToZ.VRC.Foundation;
+using JLChnToZ.VRC.Foundation.I18N;
 
 namespace JLChnToZ.VRC {
     /// <summary>
@@ -10,27 +11,16 @@ namespace JLChnToZ.VRC {
     /// </summary>
     [UdonBehaviourSyncMode(BehaviourSyncMode.NoVariableSync)]
     [RequireComponent(typeof(Collider))]
-    public class PlayerEnterDetector : UdonSharpBehaviour {
-        [SerializeField, Resolve(".")] internal LazySwitch lazySwitch;
-        [Tooltip("The state to set when player enter.")]
-        [SerializeField, ToggleAndNumberField(DisabledText = "(No Change)")] int playerEnterState = -1;
-        [Tooltip("The state to set when player exit.")]
-        [SerializeField, ToggleAndNumberField(DisabledText = "(No Change)")] int playerExitState = -1;
-        [Tooltip("Detect all players in the world.\nWhen enabled, state changes only when the first player enter or the last player exit.")]
-        [SerializeField] internal bool detectAllPlayers = false;
-        [Tooltip("(Experimental) Only trigger enter when current player owns any chidren of the game objects defined in the lazy switch, or the entering player is the local player.\nRequire to enable 'Detect All Players'.")]
-        [SerializeField] internal bool anyOwnedObjects = false;
+    public class PlayerEnterDetector : LazySwitchInteractionBlocker {
+        [SerializeField, LocalizedLabel, ToggleAndNumberField] int playerEnterState = -1;
+        [SerializeField, LocalizedLabel, ToggleAndNumberField] int playerExitState = -1;
+        [SerializeField, LocalizedLabel] internal bool detectAllPlayers = false;
+        [SerializeField, LocalizedLabel] internal bool anyOwnedObjects = false;
         [SerializeField, HideInInspector] internal GameObject[] childrenToCheck;
         DataDictionary enteredPlayers;
 
-        void OnEnable() {
-            if (lazySwitch == null) {
-                Debug.LogError("LazySwitch is not assigned.");
-                enabled = false;
-                return;
-            }
-            if (lazySwitch.gameObject == gameObject)
-                lazySwitch.DisableInteractive = true; // You don't want the detection collider interactable.
+        protected override void OnEnable() {
+            base.OnEnable();
             if (detectAllPlayers) {
                 if (Utilities.IsValid(enteredPlayers))
                     enteredPlayers.Clear();

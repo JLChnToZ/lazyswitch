@@ -8,7 +8,7 @@
   "vrchatVersion": "2022.1.1",
   "vpmDependencies": {
     "com.vrchat.worlds": "3.x.x",
-    "idv.jlchntoz.vrcw-foundation": "0.x.x"
+    "idv.jlchntoz.vrcw-foundation": "0.x.x >=0.0.32"
   },
   "author": {
     "name": "Jeremy Lam aka. Vistanz",

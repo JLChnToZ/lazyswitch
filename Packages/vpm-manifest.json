@@ -32,7 +32,7 @@
       }
     },
     "idv.jlchntoz.vrcw-foundation": {
-      "version": "0.0.31",
+      "version": "0.0.32",
       "dependencies": {
         "com.vrchat.worlds": "3.x.x"
       }

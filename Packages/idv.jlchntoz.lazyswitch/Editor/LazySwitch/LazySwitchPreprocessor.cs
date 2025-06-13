@@ -144,7 +144,9 @@ namespace JLChnToZ.VRC {
                 sw.persistenceKey = null;
 #endif
                 sw.isSynced = false;
+                CheckAndUpdateSyncMode(sw);
             }
+            CheckAndUpdateSyncMode(masterSwitch);
         }
 
         void ProcessPlayerDetectors(PlayerEnterDetector ped) {

@@ -18,10 +18,7 @@ namespace JLChnToZ.VRC {
 
     [CustomEditor(typeof(LazySwitch))]
     [CanEditMultipleObjects]
-    sealed class LazySwitchEditor : Editor {
-        const string masterSwitchMessage = "This switch will be synchronized with the master switch.";
-        const string multipleValuesMessage = "Unable to display values because they are different across multiple objects.\n" +
-            "Attempt to add, reorder or change the values will cause all selected switches to have the same value.";
+    sealed class LazySwitchEditor : LazySwitchEditorBase {
         static readonly List<Component> tempComponents = new List<Component>();
         static readonly List<(UnityObject component, SwitchDrivenType subType, string parameter)> menuComponents = new List<(UnityObject, SwitchDrivenType, string)>();
         static GUIContent tempContent;
@@ -107,8 +104,27 @@ namespace JLChnToZ.VRC {
             Undo.undoRedoPerformed -= LoadEntries;
         }
 
-        public override void OnInspectorGUI() {
-            if (UdonSharpGUI.DrawDefaultUdonSharpBehaviourHeader(target, false, false)) return;
+        void CheckAndUpdateSyncMode() {
+            if (serializedObject.isEditingMultipleObjects)
+                foreach (var target in targets)
+                    LazySwitchEditorUtils.CheckAndUpdateSyncMode(target as LazySwitch);
+            else
+                LazySwitchEditorUtils.CheckAndUpdateSyncMode(target as LazySwitch);
+        }
+
+        protected override bool DrawUdonSharpHeader() {
+            if (UdonSharpGUI.DrawProgramSource(target, false)) return true;
+            UdonSharpGUI.DrawCompileErrorTextArea();
+            UdonSharpGUI.DrawUtilities(target);
+            EditorGUILayout.Space();
+            return false;
+        }
+
+        protected override void DrawContent() {
+            if (!(target as Component).TryGetComponent(out LazySwitchInteractionBlocker _)) {
+                UdonSharpGUI.DrawInteractSettings(target);
+                EditorGUILayout.Space();
+            }
             serializedObject.Update();
             entriesUpdated = false;
             var isPlaying = EditorApplication.isPlayingOrWillChangePlaymode;
@@ -124,14 +140,14 @@ namespace JLChnToZ.VRC {
                     using (new EditorGUI.DisabledScope(true)) {
                         var masterSwitch = masterSwitchProp.objectReferenceValue as LazySwitch;
                         masterSwitchState = masterSwitch.state;
-                        EditorGUILayout.Toggle(isSyncedProp.displayName, masterSwitch.isSynced);
-                        EditorGUILayout.Toggle(isRandomizedProp.displayName, masterSwitch.isRandomized);
+                        EditorGUILayout.Toggle(i18n["JLChnToZ.VRC.LazySwitch.isSynced"], masterSwitch.isSynced);
+                        EditorGUILayout.Toggle(i18n["JLChnToZ.VRC.LazySwitch.isRandomized"], masterSwitch.isRandomized);
                         if (isPlaying) EditorGUILayout.IntField(stateProp.displayName, masterSwitchState);
 #if VRC_ENABLE_PLAYER_PERSISTENCE
                         EditorGUILayout.TextField(persistenceKeyProp.displayName, masterSwitch.persistenceKey);
 #endif
                     }
-                    EditorGUILayout.HelpBox(masterSwitchMessage, MessageType.Info);
+                    EditorGUILayout.HelpBox(i18n["JLChnToZ.VRC.LazySwitch.masterSwitch:info"], MessageType.Info);
                 } else {
                     EditorGUILayout.PropertyField(isSyncedProp);
                     EditorGUILayout.PropertyField(isRandomizedProp);
@@ -140,32 +156,20 @@ namespace JLChnToZ.VRC {
 #if VRC_ENABLE_PLAYER_PERSISTENCE
                     EditorGUILayout.PropertyField(persistenceKeyProp);
                     if (isSyncedProp.boolValue && !string.IsNullOrEmpty(persistenceKeyProp.stringValue))
-                        EditorGUILayout.HelpBox(
-                            "Persistence data will only get restored from the first joined player when used in synced mode.",
-                            MessageType.Info
-                        );
+                        EditorGUILayout.HelpBox(i18n["JLChnToZ.VRC.LazySwitch.persistence:info"], MessageType.Info );
 #endif
                 }
                 EditorGUILayout.PropertyField(fixupModeProp);
                 var fixupMode = (FixupMode)fixupModeProp.intValue;
                 switch (fixupMode) {
                     case FixupMode.AsIs:
-                        EditorGUILayout.HelpBox(
-                            "The initial active state of target objects will be used as-is.\nThe toggle state here will be in sync with the target object active state.",
-                            MessageType.Info
-                        );
+                        EditorGUILayout.HelpBox(i18n["JLChnToZ.VRC.FixupMode.AsIs:info"], MessageType.Info);
                         break;
                     case FixupMode.OnBuild:
-                        EditorGUILayout.HelpBox(
-                            "The actual object active state will be updated to match the default state here on world build.\nBeware this may break UDON scripts which require to be enabled at start but you set it to off as default here.",
-                            MessageType.Info
-                        );
+                        EditorGUILayout.HelpBox(i18n["JLChnToZ.VRC.FixupMode.OnBuild:info"], MessageType.Info);
                         break;
                     case FixupMode.OnEnable:
-                        EditorGUILayout.HelpBox(
-                            "The actual object active state will be updated to match the default state here when the switch is enabled on runtime.\nBeware this may break UDON scripts when you enable the target object in edit mode but also setting it to off as default here.",
-                            MessageType.Info
-                        );
+                        EditorGUILayout.HelpBox(i18n["JLChnToZ.VRC.FixupMode.OnEnable:info"], MessageType.Info);
                         break;
                 }
                 syncActiveState = fixupMode == FixupMode.AsIs;
@@ -176,7 +180,8 @@ namespace JLChnToZ.VRC {
             if (targetObjectGroupOffsetsProp.hasMultipleDifferentValues ||
                 targetObjectsProp.hasMultipleDifferentValues ||
                 targetObjectTypesProp.hasMultipleDifferentValues)
-                EditorGUILayout.HelpBox(multipleValuesMessage, MessageType.Warning);
+                EditorGUILayout.HelpBox(i18n["JLChnToZ.VRC.LazySwitch.multiedit"], MessageType.Warning);
+            CheckAndUpdateSyncMode();
             serializedObject.ApplyModifiedProperties();
         }
 
@@ -197,7 +202,10 @@ namespace JLChnToZ.VRC {
         }
 
         void DrawTargetObjectHeader(Rect rect) {
-            EditorGUI.LabelField(rect, EditorApplication.isPlayingOrWillChangePlaymode ? "Target Objects" : "States and Target Objects", EditorStyles.boldLabel);
+            EditorGUI.LabelField(rect, i18n[EditorApplication.isPlayingOrWillChangePlaymode ?
+                "JLChnToZ.VRC.LazySwitch.state:title_playing" :
+                "JLChnToZ.VRC.LazySwitch.state:title"
+            ], EditorStyles.boldLabel);
             HandleDrop(rect);
         }
 
@@ -209,7 +217,7 @@ namespace JLChnToZ.VRC {
                 bool isSingleState = IsSingleState;
                 var toggleStyle = isSingleState ? EditorStyles.toggle : EditorStyles.radioButton;
                 var labelStyle = EditorStyles.miniBoldLabel;
-                tempContent.text = $"State {entry.separatorIndex}";
+                tempContent.text = string.Format(i18n["JLChnToZ.VRC.LazySwitch.state"], entry.separatorIndex);
                 labelRect.height = Mathf.Max(
                     toggleStyle.CalcHeight(GUIContent.none, 16F),
                     labelStyle.CalcHeight(tempContent, EditorGUIUtility.currentViewWidth - 16F)
@@ -286,7 +294,7 @@ namespace JLChnToZ.VRC {
         }
 
         void DrawEmptyTargetObjectElement(Rect rect) {
-            EditorGUI.LabelField(rect, "Click `+` button or drop objects here.");
+            EditorGUI.LabelField(rect, i18n["JLChnToZ.VRC.LazySwitch.state:empty"]);
             HandleDrop(rect);
         }
 
@@ -317,17 +325,17 @@ namespace JLChnToZ.VRC {
             var selectedGameObjects = Selection.gameObjects;
             menu.AddItem(new GUIContent(
                 selectedGameObjects.Length > 1 || selectedGameObjects[0] != (target as Component).gameObject ?
-                "Add Selected Game Objects" :
-                "Add Game Object"
+                i18n["JLChnToZ.VRC.LazySwitch.addGameObjects"] :
+                i18n["JLChnToZ.VRC.LazySwitch.addGameObject"]
             ), false, OnAddEntry);
             int separatorCount = 1;
             foreach (var entry in targetObjectsEntries)
                 if (entry.isSeparator)
                     separatorCount++;
             if (separatorCount >= 32)
-                menu.AddDisabledItem(new GUIContent("Add State Separator"));
+                menu.AddDisabledItem(new GUIContent(i18n["JLChnToZ.VRC.LazySwitch.addSeparator"]));
             else
-                menu.AddItem(new GUIContent("Add State Separator"), false, OnAddSeparator);
+                menu.AddItem(new GUIContent(i18n["JLChnToZ.VRC.LazySwitch.addSeparator"]), false, OnAddSeparator);
             menu.DropDown(buttonRect);
         }
 
