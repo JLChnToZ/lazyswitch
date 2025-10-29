@@ -33,6 +33,8 @@ namespace JLChnToZ.VRC {
         [SerializeField, LocalizedLabel, LocalizedEnum] internal FixupMode fixupMode;
 #if VRC_ENABLE_PLAYER_PERSISTENCE
         [SerializeField, LocalizedLabel] internal string persistenceKey;
+        [SerializeField, LocalizedLabel] internal bool separatePersistencePerPlatform;
+        [SerializeField, LocalizedLabel] internal bool separatePersistenceForVR;
 #endif
         [UdonSynced] byte syncedState;
         object[] resolvedTargetObjects;
@@ -171,13 +173,33 @@ namespace JLChnToZ.VRC {
         }
 
 #if VRC_ENABLE_PLAYER_PERSISTENCE
+        bool CheckPersistenceKey() {
+            bool hasPersistenceKey = !string.IsNullOrEmpty(persistenceKey);
+            if (separatePersistencePerPlatform) {
+                if (hasPersistenceKey) {
+#if UNITY_ANDROID
+                    persistenceKey += "_Android";
+#elif UNITY_IOS
+                    persistenceKey += "_iOS";
+#endif
+                }
+                separatePersistencePerPlatform = false;
+            }
+            if (separatePersistenceForVR) {
+                if (hasPersistenceKey && Networking.LocalPlayer.IsUserInVR())
+                    persistenceKey += "_VR";
+                separatePersistenceForVR = false;
+            }
+            return hasPersistenceKey;
+        }
+
         void Save() {
-            if (string.IsNullOrEmpty(persistenceKey)) return;
+            if (!CheckPersistenceKey()) return;
             PlayerData.SetByte(persistenceKey, (byte)state);
         }
 
         bool Load(VRCPlayerApi player) {
-            if (string.IsNullOrEmpty(persistenceKey)) return false;
+            if (!CheckPersistenceKey()) return false;
             if (isSynced && !Networking.IsOwner(gameObject)) {
                 PlayerData.SetByte(persistenceKey, syncedState);
                 return false;

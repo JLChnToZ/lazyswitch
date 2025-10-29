@@ -25,7 +25,7 @@ namespace JLChnToZ.VRC {
         SerializedProperty stateProp, isSyncedProp, isRandomizedProp, masterSwitchProp, fixupModeProp,
             targetObjectsProp, targetObjectTypesProp, targetObjectGroupOffsetsProp, targetObjectEnableMaskProp, targetObjectAnimatorKeysProp;
 #if VRC_ENABLE_PLAYER_PERSISTENCE
-        SerializedProperty persistenceKeyProp;
+        SerializedProperty persistenceKeyProp, separatePersistencePerPlatformProp, separatePersistenceForVRProp;
 #endif
         ReorderableList targetObjectsList;
         readonly List<Entry> targetObjectsEntries = new List<Entry>();
@@ -84,6 +84,8 @@ namespace JLChnToZ.VRC {
             fixupModeProp = serializedObject.FindProperty(nameof(LazySwitch.fixupMode));
 #if VRC_ENABLE_PLAYER_PERSISTENCE
             persistenceKeyProp = serializedObject.FindProperty(nameof(LazySwitch.persistenceKey));
+            separatePersistencePerPlatformProp = serializedObject.FindProperty(nameof(LazySwitch.separatePersistencePerPlatform));
+            separatePersistenceForVRProp = serializedObject.FindProperty(nameof(LazySwitch.separatePersistenceForVR));
 #endif
             if (targetObjectsList == null)
                 targetObjectsList = new ReorderableList(targetObjectsEntries, typeof(Entry)) {
@@ -155,8 +157,14 @@ namespace JLChnToZ.VRC {
                     if (isPlaying) EditorGUILayout.PropertyField(stateProp);
 #if VRC_ENABLE_PLAYER_PERSISTENCE
                     EditorGUILayout.PropertyField(persistenceKeyProp);
-                    if (isSyncedProp.boolValue && !string.IsNullOrEmpty(persistenceKeyProp.stringValue))
-                        EditorGUILayout.HelpBox(i18n["JLChnToZ.VRC.LazySwitch.persistence:info"], MessageType.Info );
+                    if (!string.IsNullOrEmpty(persistenceKeyProp.stringValue)) {
+                        if (isSyncedProp.boolValue)
+                            EditorGUILayout.HelpBox(i18n["JLChnToZ.VRC.LazySwitch.persistence:info"], MessageType.Info);
+                        using (new EditorGUI.IndentLevelScope()) {
+                            EditorGUILayout.PropertyField(separatePersistencePerPlatformProp);
+                            EditorGUILayout.PropertyField(separatePersistenceForVRProp);
+                        }
+                    }
 #endif
                 }
                 EditorGUILayout.PropertyField(fixupModeProp);
