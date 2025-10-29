@@ -146,6 +146,14 @@ namespace JLChnToZ.VRC {
                 sw.isSynced = false;
                 CheckAndUpdateSyncMode(sw);
             }
+#if UNITY_ANDROID || UNITY_IOS
+            if (masterSwitch.separatePersistencePerPlatform && !string.IsNullOrEmpty(masterSwitch.persistenceKey))
+#if UNITY_ANDROID
+                masterSwitch.persistenceKey += "_Android";
+#elif UNITY_IOS
+                masterSwitch.persistenceKey += "_iOS";
+#endif
+#endif
             CheckAndUpdateSyncMode(masterSwitch);
         }
 

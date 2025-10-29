@@ -175,16 +175,6 @@ namespace JLChnToZ.VRC {
 #if VRC_ENABLE_PLAYER_PERSISTENCE
         bool CheckPersistenceKey() {
             bool hasPersistenceKey = !string.IsNullOrEmpty(persistenceKey);
-            if (separatePersistencePerPlatform) {
-                if (hasPersistenceKey) {
-#if UNITY_ANDROID
-                    persistenceKey += "_Android";
-#elif UNITY_IOS
-                    persistenceKey += "_iOS";
-#endif
-                }
-                separatePersistencePerPlatform = false;
-            }
             if (separatePersistenceForVR) {
                 if (hasPersistenceKey && Networking.LocalPlayer.IsUserInVR())
                     persistenceKey += "_VR";
