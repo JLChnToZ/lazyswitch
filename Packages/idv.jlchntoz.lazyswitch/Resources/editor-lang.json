@@ -36,7 +36,15 @@
         "JLChnToZ.VRC.PlayerEnterDetector.detectAllPlayers": "Detect All Players",
         "JLChnToZ.VRC.PlayerEnterDetector.detectAllPlayers:tooltip": "Detect all players in the world.\nWhen enabled, state changes only when the first player enter or the last player exit.",
         "JLChnToZ.VRC.PlayerEnterDetector.anyOwnedObjects": "Any Owned Objects",
-        "JLChnToZ.VRC.PlayerEnterDetector.anyOwnedObjects:tooltip": "(Experimental) Only trigger enter when current player owns any children of the game objects defined in the lazy switch, or the entering player is the local player.\nRequire to enable 'Detect All Players'."
+        "JLChnToZ.VRC.PlayerEnterDetector.anyOwnedObjects:tooltip": "(Experimental) Only trigger enter when current player owns any children of the game objects defined in the lazy switch, or the entering player is the local player.\nRequire to enable 'Detect All Players'.",
+        "JLChnToZ.VRC.EnableDetector.detectOnEnable": "Detect On Enable",
+        "JLChnToZ.VRC.EnableDetector.detectOnEnable:tooltip": "Whether to detect enable event.",
+        "JLChnToZ.VRC.EnableDetector.enableState": "Enable State",
+        "JLChnToZ.VRC.EnableDetector.enableState:tooltip": "The state to set when enabled.\n-1 means the next/random state according to the switch settings.",
+        "JLChnToZ.VRC.EnableDetector.detectOnDisable": "Detect On Disable",
+        "JLChnToZ.VRC.EnableDetector.detectOnDisable:tooltip": "Whether to detect disable event.",
+        "JLChnToZ.VRC.EnableDetector.disableState": "Disable State",
+        "JLChnToZ.VRC.EnableDetector.disableState:tooltip": "The state to set when disabled.\n-1 means the next/random state according to the switch settings."
     },
     "zh-hant": {
         "JLChnToZ.VRC.LazySwitch.multiedit": "無法顯示值，因為它們在多個物件中不同。\n嘗試添加、重新排序或更改值將導致所有選定的開關具有相同的值。",
@@ -75,7 +83,15 @@
         "JLChnToZ.VRC.PlayerEnterDetector.detectAllPlayers": "檢測所有玩家",
         "JLChnToZ.VRC.PlayerEnterDetector.detectAllPlayers:tooltip": "檢測世界中的所有玩家。\n啟用時，狀態僅在第一個玩家進入或最後一個玩家退出時更改。",
         "JLChnToZ.VRC.PlayerEnterDetector.anyOwnedObjects": "任何擁有的物件",
-        "JLChnToZ.VRC.PlayerEnterDetector.anyOwnedObjects:tooltip": "(實驗性) 只有當當前玩家擁有懶開關中定義的遊戲物件的任何子物件，或進入的玩家是本地玩家時，才觸發進入。\n需要啟用“檢測所有玩家”。"
+        "JLChnToZ.VRC.PlayerEnterDetector.anyOwnedObjects:tooltip": "(實驗性) 只有當當前玩家擁有懶開關中定義的遊戲物件的任何子物件，或進入的玩家是本地玩家時，才觸發進入。\n需要啟用“檢測所有玩家”。",
+        "JLChnToZ.VRC.EnableDetector.detectOnEnable": "在開啟時檢測",
+        "JLChnToZ.VRC.EnableDetector.detectOnEnable:tooltip": "是否檢測開啟事件。",
+        "JLChnToZ.VRC.EnableDetector.enableState": "開啟時狀態",
+        "JLChnToZ.VRC.EnableDetector.enableState:tooltip": "開啟時要設置的狀態。\n-1 表示根據開關設置的下一個/隨機狀態。",
+        "JLChnToZ.VRC.EnableDetector.detectOnDisable": "關閉時檢測",
+        "JLChnToZ.VRC.EnableDetector.detectOnDisable:tooltip": "是否檢關閉事件。",
+        "JLChnToZ.VRC.EnableDetector.disableState": "關閉時狀態",
+        "JLChnToZ.VRC.EnableDetector.disableState:tooltip": "關閉時要設置的狀態。\n-1 表示根據開關設置的下一個/隨機狀態。"
     },
     "zh-hans": {
         "JLChnToZ.VRC.LazySwitch.multiedit": "无法显示值，因为它们在多个对象中不同。\n尝试添加、重新排序或更改值将导致所有选定的开关具有相同的值。",
@@ -114,7 +130,15 @@
         "JLChnToZ.VRC.PlayerEnterDetector.detectAllPlayers": "检测所有玩家",
         "JLChnToZ.VRC.PlayerEnterDetector.detectAllPlayers:tooltip": "检测世界中的所有玩家。\n启用时，状态仅在第一个玩家进入或最后一个玩家退出时更改。",
         "JLChnToZ.VRC.PlayerEnterDetector.anyOwnedObjects": "任何拥有的对象",
-        "JLChnToZ.VRC.PlayerEnterDetector.anyOwnedObjects:tooltip": "(实验性) 只有当当前玩家拥有懒开关中定义的游戏对象的任何子对象，或进入的玩家是本地玩家时，才触发进入。\n需要启用“检测所有玩家”。"
+        "JLChnToZ.VRC.PlayerEnterDetector.anyOwnedObjects:tooltip": "(实验性) 只有当当前玩家拥有懒开关中定义的游戏对象的任何子对象，或进入的玩家是本地玩家时，才触发进入。\n需要启用“检测所有玩家”。",
+        "JLChnToZ.VRC.EnableDetector.detectOnEnable": "在开启时检测",
+        "JLChnToZ.VRC.EnableDetector.detectOnEnable:tooltip": "是否检测开启事件。",
+        "JLChnToZ.VRC.EnableDetector.enableState": "开启时状态",
+        "JLChnToZ.VRC.EnableDetector.enableState:tooltip": "开启时要设置的状态。\n-1 表示根据开关设置的下一个/随机状态。",
+        "JLChnToZ.VRC.EnableDetector.detectOnDisable": "关闭时检测",
+        "JLChnToZ.VRC.EnableDetector.detectOnDisable:tooltip": "是否检测关闭事件。",
+        "JLChnToZ.VRC.EnableDetector.disableState": "关闭时状态",
+        "JLChnToZ.VRC.EnableDetector.disableState:tooltip": "关闭时要设置的状态。\n-1 表示根据开关设置的下一个/随机状态。"
     },
     "ja": {
         "JLChnToZ.VRC.LazySwitch.multiedit": "複数のオブジェクトで値が異なるため、値を表示できません。\n値を追加、並べ替え、または変更しようとすると、選択したすべてのスイッチが同じ値になります。",
@@ -153,7 +177,15 @@
         "JLChnToZ.VRC.PlayerEnterDetector.detectAllPlayers": "すべてのプレイヤーを検出",
         "JLChnToZ.VRC.PlayerEnterDetector.detectAllPlayers:tooltip": "ワールド内のすべてのプレイヤーを検出します。\n有効にすると、状態は最初のプレイヤーが入場したときまたは最後のプレイヤーが退出したときにのみ変更されます。",
         "JLChnToZ.VRC.PlayerEnterDetector.anyOwnedObjects": "所有しているオブジェクトがある場合",
-        "JLChnToZ.VRC.PlayerEnterDetector.anyOwnedObjects:tooltip": "(実験的) 現在のプレイヤーがラジースイッチで定義されたゲームオブジェクトの子オブジェクトを所有している場合、または入場するプレイヤーがローカルプレイヤーである場合にのみ、入場をトリガーします。\n「すべてのプレイヤーを検出」を有効にする必要があります。"
+        "JLChnToZ.VRC.PlayerEnterDetector.anyOwnedObjects:tooltip": "(実験的) 現在のプレイヤーがラジースイッチで定義されたゲームオブジェクトの子オブジェクトを所有している場合、または入場するプレイヤーがローカルプレイヤーである場合にのみ、入場をトリガーします。\n「すべてのプレイヤーを検出」を有効にする必要があります。",
+        "JLChnToZ.VRC.EnableDetector.detectOnEnable": "有効時に検出",
+        "JLChnToZ.VRC.EnableDetector.detectOnEnable:tooltip": "有効化イベントを検出するかどうか。",
+        "JLChnToZ.VRC.EnableDetector.enableState": "有効状態",
+        "JLChnToZ.VRC.EnableDetector.enableState:tooltip": "有効にしたときに設定する状態。\n-1 は、スイッチの設定に応じた次の/ランダムな状態を意味します。",
+        "JLChnToZ.VRC.EnableDetector.detectOnDisable": "無効時に検出",
+        "JLChnToZ.VRC.EnableDetector.detectOnDisable:tooltip": "無効化イベントを検出するかどうか。",
+        "JLChnToZ.VRC.EnableDetector.disableState": "無効状態",
+        "JLChnToZ.VRC.EnableDetector.disableState:tooltip": "無効にしたときに設定する状態。\n-1 は、スイッチの設定に応じた次の/ランダムな状態を意味します。"
     },
     "ko": {
         "JLChnToZ.VRC.LazySwitch.multiedit": "여러 객체에서 값이 다르기 때문에 값을 표시할 수 없습니다.\n값을 추가, 재정렬 또는 변경하려고 하면 선택한 모든 스위치가 동일한 값을 갖게 됩니다.",
@@ -192,6 +224,14 @@
         "JLChnToZ.VRC.PlayerEnterDetector.detectAllPlayers": "모든 플레이어 감지",
         "JLChnToZ.VRC.PlayerEnterDetector.detectAllPlayers:tooltip": "월드 내의 모든 플레이어를 감지합니다.\n활성화하면 상태는 첫 번째 플레이어가 입장하거나 마지막 플레이어가 퇴장할 때만 변경됩니다.",
         "JLChnToZ.VRC.PlayerEnterDetector.anyOwnedObjects": "소유한 객체가 있는 경우",
-        "JLChnToZ.VRC.PlayerEnterDetector.anyOwnedObjects:tooltip": "(실험적) 현재 플레이어가 레이지 스위치에서 정의된 게임 객체의 자식 객체를 소유하고 있거나 입장하는 플레이어가 로컬 플레이어인 경우에만 입장을 트리거합니다.\n'모든 플레이어 감지'를 활성화해야 합니다."
+        "JLChnToZ.VRC.PlayerEnterDetector.anyOwnedObjects:tooltip": "(실험적) 현재 플레이어가 레이지 스위치에서 정의된 게임 객체의 자식 객체를 소유하고 있거나 입장하는 플레이어가 로컬 플레이어인 경우에만 입장을 트리거합니다.\n'모든 플레이어 감지'를 활성화해야 합니다.",
+        "JLChnToZ.VRC.EnableDetector.detectOnEnable": "활성화 시 감지",
+        "JLChnToZ.VRC.EnableDetector.detectOnEnable:tooltip": "활성화 이벤트를 감지할지 여부입니다.",
+        "JLChnToZ.VRC.EnableDetector.enableState": "활성 상태",
+        "JLChnToZ.VRC.EnableDetector.enableState:tooltip": "활성화할 때 설정할 상태입니다.\n-1은 스위치 설정에 따른 다음/무작위 상태를 의미합니다.",
+        "JLChnToZ.VRC.EnableDetector.detectOnDisable": "비활성화 시 감지",
+        "JLChnToZ.VRC.EnableDetector.detectOnDisable:tooltip": "비활성화 이벤트를 감지할지 여부입니다.",
+        "JLChnToZ.VRC.EnableDetector.disableState": "비활성 상태",
+        "JLChnToZ.VRC.EnableDetector.disableState:tooltip": "비활성화할 때 설정할 상태입니다.\n-1은 스위치 설정에 따른 다음/무작위 상태를 의미합니다。"
     }
 }

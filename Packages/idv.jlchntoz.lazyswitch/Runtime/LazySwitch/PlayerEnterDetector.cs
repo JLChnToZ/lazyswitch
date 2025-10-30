@@ -9,6 +9,7 @@ namespace JLChnToZ.VRC {
     /// <summary>
     /// A component that detects player entering and exiting the collider, and changes the state of a LazySwitch accordingly.
     /// </summary>
+    [AddComponentMenu("JLChnToZ/Lazy Switch Player Enter Detector")]
     [UdonBehaviourSyncMode(BehaviourSyncMode.NoVariableSync)]
     [RequireComponent(typeof(Collider))]
     public class PlayerEnterDetector : LazySwitchInteractionBlocker {
