@@ -1,12 +1,14 @@
 using System;
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.Pool;
 using UnityEditor;
 using UnityEditorInternal;
 using VRC.Udon;
 using VRC.Udon.Common.Interfaces;
 using UdonSharp;
 using UdonSharpEditor;
+using JLChnToZ.VRC.Foundation.I18N.Editors;
 #if CYAN_TRIGGER_IMPORTED
 using Cyan.CT.Editor;
 #endif
@@ -19,10 +21,10 @@ namespace JLChnToZ.VRC {
     [CustomEditor(typeof(LazySwitch))]
     [CanEditMultipleObjects]
     sealed class LazySwitchEditor : LazySwitchEditorBase {
-        static readonly List<Component> tempComponents = new List<Component>();
+        static readonly string[] allowedStatesOptions = new string[32];
         static readonly List<(UnityObject component, SwitchDrivenType subType, string parameter)> menuComponents = new List<(UnityObject, SwitchDrivenType, string)>();
         static GUIContent tempContent;
-        SerializedProperty stateProp, isSyncedProp, isRandomizedProp, masterSwitchProp, fixupModeProp,
+        SerializedProperty stateProp, isSyncedProp, isRandomizedProp, masterSwitchProp, fixupModeProp, allowedStatesMaskProp,
             targetObjectsProp, targetObjectTypesProp, targetObjectGroupOffsetsProp, targetObjectEnableMaskProp, targetObjectAnimatorKeysProp;
 #if VRC_ENABLE_PLAYER_PERSISTENCE
         SerializedProperty persistenceKeyProp, separatePersistencePerPlatformProp, separatePersistenceForVRProp;
@@ -82,6 +84,7 @@ namespace JLChnToZ.VRC {
             targetObjectEnableMaskProp = serializedObject.FindProperty(nameof(LazySwitch.targetObjectEnableMask));
             targetObjectAnimatorKeysProp = serializedObject.FindProperty(nameof(LazySwitch.targetObjectAnimatorKeys));
             fixupModeProp = serializedObject.FindProperty(nameof(LazySwitch.fixupMode));
+            allowedStatesMaskProp = serializedObject.FindProperty(nameof(LazySwitch.allowedStatesMask));
 #if VRC_ENABLE_PLAYER_PERSISTENCE
             persistenceKeyProp = serializedObject.FindProperty(nameof(LazySwitch.persistenceKey));
             separatePersistencePerPlatformProp = serializedObject.FindProperty(nameof(LazySwitch.separatePersistencePerPlatform));
@@ -181,6 +184,14 @@ namespace JLChnToZ.VRC {
                         break;
                 }
                 syncActiveState = fixupMode == FixupMode.AsIs;
+                var rect = EditorGUILayout.GetControlRect();
+                using (var scope = new EditorGUI.PropertyScope(rect, null, allowedStatesMaskProp))
+                    allowedStatesMaskProp.intValue = EditorGUI.MaskField(
+                        rect,
+                        i18n.GetLocalizedContent("JLChnToZ.VRC.LazySwitch.allowedStates"),
+                        allowedStatesMaskProp.intValue,
+                        allowedStatesOptions
+                    );
                 EditorGUILayout.Space();
                 targetObjectsList.DoLayoutList();
             }
@@ -191,6 +202,11 @@ namespace JLChnToZ.VRC {
                 EditorGUILayout.HelpBox(i18n["JLChnToZ.VRC.LazySwitch.multiedit"], MessageType.Warning);
             CheckAndUpdateSyncMode();
             serializedObject.ApplyModifiedProperties();
+        }
+
+        protected override void OnLanguageChanged() {
+            for (int i = 0; i < allowedStatesOptions.Length; i++)
+                allowedStatesOptions[i] = string.Format(i18n["JLChnToZ.VRC.LazySwitch.state"], i);
         }
 
         float CalculateTargetObjectElementHeight(int index) {
@@ -363,50 +379,51 @@ namespace JLChnToZ.VRC {
             if (targetObject == null) return;
             var targetType = targetObjectsEntries[index].objectType;
             var targetParameter = targetObjectsEntries[index].parameter;
-            tempComponents.Clear();
-            if (targetObject is GameObject go)
-                go.GetComponents(tempComponents);
-            else if (targetObject is Component c) {
-                c.GetComponents(tempComponents);
-                go = c.gameObject;
-            } else return;
-            menuComponents.Clear();
-            menuComponents.Add((go, SwitchDrivenType.GameObject, null));
-            foreach (var component in tempComponents) {
-                if (component is IUdonEventReceiver) {
-                    MonoBehaviour obj = null;
-                    if (component is UdonBehaviour ub) {
-                        obj = UdonSharpEditorUtility.GetProxyBehaviour(ub);
-                        if (obj == null) obj = ub;
-                    }
-                    if (obj == null) continue;
-                    menuComponents.Add((obj, SwitchDrivenType.UdonBehaviour, null));
-                    continue;
-                }
-                if (component is ParticleSystem) {
-                    for (var st = SwitchDrivenType.ParticleSystemEmissionModule;
-                        st <= SwitchDrivenType.ParticleSystemCustomDataModule;
-                        st++)
-                        menuComponents.Add((component, st, null));
-                    continue;
-                }
-                if (component is Animator animator) {
-                    foreach (var parameter in animator.parameters)
-                        switch (parameter.type) {
-                            case ACParameterType.Bool:
-                                menuComponents.Add((animator, SwitchDrivenType.AnimatorBool, parameter.name));
-                                break;
-                            case ACParameterType.Trigger:
-                                menuComponents.Add((animator, SwitchDrivenType.AnimatorTrigger, parameter.name));
-                                break;
-                            default:
-                                continue;
+            using (ListPool<Component>.Get(out var tempComponents)) {
+                if (targetObject is GameObject go)
+                    go.GetComponents(tempComponents);
+                else if (targetObject is Component c) {
+                    c.GetComponents(tempComponents);
+                    go = c.gameObject;
+                } else return;
+                menuComponents.Clear();
+                menuComponents.Add((go, SwitchDrivenType.GameObject, null));
+                foreach (var component in tempComponents) {
+                    if (component is IUdonEventReceiver) {
+                        MonoBehaviour obj = null;
+                        if (component is UdonBehaviour ub) {
+                            obj = UdonSharpEditorUtility.GetProxyBehaviour(ub);
+                            if (obj == null) obj = ub;
                         }
-                    continue;
+                        if (obj == null) continue;
+                        menuComponents.Add((obj, SwitchDrivenType.UdonBehaviour, null));
+                        continue;
+                    }
+                    if (component is ParticleSystem) {
+                        for (var st = SwitchDrivenType.ParticleSystemEmissionModule;
+                            st <= SwitchDrivenType.ParticleSystemCustomDataModule;
+                            st++)
+                            menuComponents.Add((component, st, null));
+                        continue;
+                    }
+                    if (component is Animator animator) {
+                        foreach (var parameter in animator.parameters)
+                            switch (parameter.type) {
+                                case ACParameterType.Bool:
+                                    menuComponents.Add((animator, SwitchDrivenType.AnimatorBool, parameter.name));
+                                    break;
+                                case ACParameterType.Trigger:
+                                    menuComponents.Add((animator, SwitchDrivenType.AnimatorTrigger, parameter.name));
+                                    break;
+                                default:
+                                    continue;
+                            }
+                        continue;
+                    }
+                    var type = GetTypeCode(component);
+                    if (type == SwitchDrivenType.Unknown) continue;
+                    menuComponents.Add((component, type, null));
                 }
-                var type = GetTypeCode(component);
-                if (type == SwitchDrivenType.Unknown) continue;
-                menuComponents.Add((component, type, null));
             }
             int count = menuComponents.Count;
             var options = new string[count];

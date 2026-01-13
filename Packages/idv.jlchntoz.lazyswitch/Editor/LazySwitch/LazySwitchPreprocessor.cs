@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.Pool;
 using UnityEngine.SceneManagement;
 using VRC.SDKBase;
 using VRC.Udon;
@@ -13,13 +14,11 @@ namespace JLChnToZ.VRC {
     using static LazySwitchEditorUtils;
 
     sealed class LazySwitchPreprocessor : IPreprocessor {
-        static readonly List<Collider> tempColliders = new List<Collider>();
         readonly List<LazySwitch> switches = new List<LazySwitch>();
-        readonly HashSet<GameObject> gameObjects = new HashSet<GameObject>();
         readonly Dictionary<LazySwitch, List<LazySwitch>> switchGroups = new Dictionary<LazySwitch, List<LazySwitch>>();
         readonly Dictionary<UnityObject, (SwitchDrivenType objectType, int onFlags, int offFlags)> targetObjectEnableMask = new Dictionary<UnityObject, (SwitchDrivenType, int, int)>();
 
-        public int Priority => 0;
+        public int Priority => -1;
 
         public void OnPreprocess(Scene scene) {
             foreach (var sw in scene.IterateAllComponents<LazySwitch>(false))
@@ -112,6 +111,14 @@ namespace JLChnToZ.VRC {
                             ToggleActive(destObj, objectType);
                     }
                 }
+                using (ListPool<byte>.Get(out var allowStates)) {
+                    for (int k = 0; k < 32; k++) {
+                        if ((sw.allowedStatesMask & (1 << k)) == 0) continue;
+                        allowStates.Add((byte)k);
+                    }
+                    sw.allowedStatesList = allowStates.ToArray();
+                    sw.allowedStatesCount = allowStates.Count;
+                }
             }
             masterSwitch.stateCount = Mathf.Max(masterSwitch.stateCount, sw.targetObjectGroupOffsets.Length + 1);
             sw.targetObjectGroupOffsets = Array.Empty<int>(); // Clean up on build to save space
@@ -161,17 +168,20 @@ namespace JLChnToZ.VRC {
             if (!ped.anyOwnedObjects || !ped.detectAllPlayers) return;
             var sw = ped.lazySwitch;
             if (!Utils.IsAvailableOnRuntime(sw)) return;
-            ped.GetComponents(tempColliders);
-            foreach (var collider in tempColliders)
-                collider.isTrigger = true;
-            foreach (var obj in sw.targetObjects)
-                if (obj != null && obj is GameObject go)
-                    foreach (var component in go.IterateAllComponents<UdonBehaviour>(false))
-                        if (component != null && component.SyncMethod != Networking.SyncType.None)
-                            gameObjects.Add(component.gameObject);
-            ped.childrenToCheck = new GameObject[gameObjects.Count];
-            gameObjects.CopyTo(ped.childrenToCheck);
-            gameObjects.Clear();
+            using (ListPool<Collider>.Get(out var tempColliders)) {
+                ped.GetComponents(tempColliders);
+                foreach (var collider in tempColliders)
+                    collider.isTrigger = true;
+            }
+            using (HashSetPool<GameObject>.Get(out var gameObjects)) {
+                foreach (var obj in sw.targetObjects)
+                    if (obj != null && obj is GameObject go)
+                        foreach (var component in go.IterateAllComponents<UdonBehaviour>(false))
+                            if (component != null && component.SyncMethod != Networking.SyncType.None)
+                                gameObjects.Add(component.gameObject);
+                ped.childrenToCheck = new GameObject[gameObjects.Count];
+                gameObjects.CopyTo(ped.childrenToCheck);
+            }
             UdonSharpEditorUtility.CopyProxyToUdon(ped);
         }
     }

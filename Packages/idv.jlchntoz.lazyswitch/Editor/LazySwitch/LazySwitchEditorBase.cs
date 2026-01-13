@@ -9,6 +9,7 @@ namespace JLChnToZ.VRC {
     abstract class LazySwitchEditorBase : Editor {
         static PackageSelfUpdater selfUpdater;
         protected static EditorI18N i18n;
+        protected static string currentLanguage;
         protected static PackageSelfUpdater SelfUpdater {
             get {
                 if (selfUpdater == null) {
@@ -26,6 +27,10 @@ namespace JLChnToZ.VRC {
         public override void OnInspectorGUI() {
             if (DrawUdonSharpHeader()) return;
             if (i18n == null) i18n = EditorI18N.Instance;
+            if (currentLanguage != i18n.CurrentLanguage) {
+                currentLanguage = i18n.CurrentLanguage;
+                OnLanguageChanged();
+            }
             I18NUtils.DrawLocaleField();
             SelfUpdater.DrawUpdateNotifier();
             DrawContent();
@@ -43,5 +48,7 @@ namespace JLChnToZ.VRC {
                 EditorGUILayout.PropertyField(p, p.isExpanded);
             }
         }
+
+        protected virtual void OnLanguageChanged() { }
     }
 }
