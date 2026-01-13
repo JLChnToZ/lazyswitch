@@ -19,7 +19,12 @@ namespace JLChnToZ.VRC {
     [BindEvent(typeof(Toggle), nameof(Toggle.onValueChanged), nameof(Interact))]
     public class LazySwitch : UdonSharpBehaviour {
         [SerializeField, UdonMeta(UdonMetaAttributeType.NetworkSyncModeManual)] bool isManualSync;
-        [SerializeField] internal int state;
+#if COMPILER_UDONSHARP
+        public
+#else
+        [SerializeField] internal
+#endif
+        int state;
         [SerializeField, LocalizedLabel] internal bool isSynced;
         [SerializeField, LocalizedLabel] internal bool isRandomized;
         [SerializeField, LocalizedLabel] internal LazySwitch masterSwitch;
@@ -50,7 +55,7 @@ namespace JLChnToZ.VRC {
         /// The current state of this switch.
         /// </summary>
         public int State {
-            get => state;
+            get => Utilities.IsValid(masterSwitch) ? masterSwitch.state : state;
             set {
                 if (Utilities.IsValid(masterSwitch)) {
                     masterSwitch.State = value;
@@ -60,9 +65,9 @@ namespace JLChnToZ.VRC {
                 if (state == value) return;
                 state = value;
                 stateListIndex = -1;
-                UpdateAndSync();
+                _UpdateAndSync();
 #if VRC_ENABLE_PLAYER_PERSISTENCE
-                Save();
+                _Save();
 #endif
             }
         }
@@ -77,7 +82,7 @@ namespace JLChnToZ.VRC {
                 state = syncedState;
                 stateListIndex = -1;
 #if VRC_ENABLE_PLAYER_PERSISTENCE
-                Save();
+                _Save();
             } else {
                 Load(Networking.LocalPlayer);
 #endif
@@ -130,7 +135,7 @@ namespace JLChnToZ.VRC {
 
 #if VRC_ENABLE_PLAYER_PERSISTENCE
         public override void OnPlayerRestored(VRCPlayerApi player) {
-            if (player.isLocal && !Utilities.IsValid(masterSwitch) && Load(player)) UpdateAndSync();
+            if (player.isLocal && !Utilities.IsValid(masterSwitch) && Load(player)) _UpdateAndSync();
         }
 #endif
 
@@ -145,27 +150,32 @@ namespace JLChnToZ.VRC {
         /// This method bypasses interaction checks, so it can be called from other scripts or events.
         /// </remarks>
         public void _SwitchState() {
-            if (Utilities.IsValid(masterSwitch)) {
-                masterSwitch._SwitchState();
-                return;
-            }
             if (allowedStatesCount <= 0) return;
             if (isRandomized)
                 stateListIndex = Random.Range(0, allowedStatesCount);
             else {
-                if (stateListIndex < 0)
+                if (stateListIndex < 0) {
+                    var currentState = State;
                     do {
                         stateListIndex++;
-                    } while (stateListIndex < allowedStatesCount && allowedStatesList[stateListIndex] <= state);
-                else
+                    } while (stateListIndex < allowedStatesCount && allowedStatesList[stateListIndex] <= currentState);
+                } else
                     stateListIndex++;
                 stateListIndex %= allowedStatesCount;
             }
-            state = allowedStatesList[stateListIndex];
-            UpdateAndSync();
+            if (Utilities.IsValid(masterSwitch)) {
+                masterSwitch.state = allowedStatesList[stateListIndex];
+                masterSwitch._UpdateAndSync();
 #if VRC_ENABLE_PLAYER_PERSISTENCE
-            Save();
+                masterSwitch._Save();
 #endif
+            } else {
+                state = allowedStatesList[stateListIndex];
+                _UpdateAndSync();
+#if VRC_ENABLE_PLAYER_PERSISTENCE
+                _Save();
+#endif
+            }
         }
 
         public override void OnPreSerialization() {
@@ -179,11 +189,14 @@ namespace JLChnToZ.VRC {
             stateListIndex = -1;
             UpdateState();
 #if VRC_ENABLE_PLAYER_PERSISTENCE
-            Save();
+            _Save();
 #endif
         }
 
-        void UpdateAndSync() {
+#if COMPILER_UDONSHARP
+        public
+#endif
+        void _UpdateAndSync() {
             UpdateState();
             if (isSynced) {
                 if (!Networking.IsOwner(gameObject)) Networking.SetOwner(Networking.LocalPlayer, gameObject);
@@ -202,7 +215,10 @@ namespace JLChnToZ.VRC {
             return hasPersistenceKey;
         }
 
-        void Save() {
+#if COMPILER_UDONSHARP
+        public
+#endif
+        void _Save() {
             if (!CheckPersistenceKey()) return;
             PlayerData.SetByte(persistenceKey, (byte)state);
         }
