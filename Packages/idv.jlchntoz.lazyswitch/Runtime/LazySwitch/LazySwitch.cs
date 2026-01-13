@@ -49,7 +49,7 @@ namespace JLChnToZ.VRC {
         int[] targetObjectAnimatorHashes;
         bool hasInit;
         int objectCount;
-        int stateListIndex = -1;
+        int stateListIndex;
 
         /// <summary>
         /// The current state of this switch.
@@ -64,7 +64,6 @@ namespace JLChnToZ.VRC {
                 value %= stateCount;
                 if (state == value) return;
                 state = value;
-                stateListIndex = -1;
                 _UpdateAndSync();
 #if VRC_ENABLE_PLAYER_PERSISTENCE
                 _Save();
@@ -80,7 +79,6 @@ namespace JLChnToZ.VRC {
             if (isSynced && !Networking.IsOwner(gameObject)) {
                 if (!Networking.IsObjectReady(gameObject)) return;
                 state = syncedState;
-                stateListIndex = -1;
 #if VRC_ENABLE_PLAYER_PERSISTENCE
                 _Save();
             } else {
@@ -154,11 +152,24 @@ namespace JLChnToZ.VRC {
             if (isRandomized)
                 stateListIndex = Random.Range(0, allowedStatesCount);
             else {
-                if (stateListIndex < 0) {
-                    var currentState = State;
-                    do {
+                var currentState = State;
+                var lastCheckedState = allowedStatesList[stateListIndex];
+                if (lastCheckedState > currentState) {
+                    stateListIndex++;
+                    while (stateListIndex < allowedStatesCount) {
+                        if (allowedStatesList[stateListIndex] > currentState) break;
                         stateListIndex++;
-                    } while (stateListIndex < allowedStatesCount && allowedStatesList[stateListIndex] <= currentState);
+                    }
+                } else if (lastCheckedState < currentState) {
+                    while (stateListIndex > 0) {
+                        stateListIndex--;
+                        lastCheckedState = allowedStatesList[stateListIndex];
+                        if (lastCheckedState < currentState) break;
+                        if (lastCheckedState == currentState) {
+                            stateListIndex++;
+                            break;
+                        }
+                    }
                 } else
                     stateListIndex++;
                 stateListIndex %= allowedStatesCount;
@@ -186,7 +197,6 @@ namespace JLChnToZ.VRC {
         public override void OnDeserialization() {
             if (!isSynced) return;
             state = syncedState;
-            stateListIndex = -1;
             UpdateState();
 #if VRC_ENABLE_PLAYER_PERSISTENCE
             _Save();
