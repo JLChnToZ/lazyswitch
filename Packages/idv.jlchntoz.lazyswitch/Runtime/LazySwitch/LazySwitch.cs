@@ -149,39 +149,44 @@ namespace JLChnToZ.VRC {
         /// </remarks>
         public void _SwitchState() {
             if (allowedStatesCount <= 0) return;
-            if (isRandomized)
+            byte nextState;
+            if (isRandomized) {
                 stateListIndex = Random.Range(0, allowedStatesCount);
-            else {
-                var currentState = State;
-                var lastCheckedState = allowedStatesList[stateListIndex];
-                if (lastCheckedState > currentState) {
-                    stateListIndex++;
-                    while (stateListIndex < allowedStatesCount) {
-                        if (allowedStatesList[stateListIndex] > currentState) break;
-                        stateListIndex++;
+                nextState = allowedStatesList[stateListIndex];
+            } else {
+                var hasLess = true;
+                var prevState = State;
+                nextState = allowedStatesList[stateListIndex];
+                while (nextState > prevState) {
+                    if (stateListIndex <= 0) {
+                        stateListIndex = 0;
+                        hasLess = false;
+                        break;
                     }
-                } else if (lastCheckedState < currentState) {
-                    while (stateListIndex > 0) {
-                        stateListIndex--;
-                        lastCheckedState = allowedStatesList[stateListIndex];
-                        if (lastCheckedState < currentState) break;
-                        if (lastCheckedState == currentState) {
-                            stateListIndex++;
+                    stateListIndex--;
+                    nextState = allowedStatesList[stateListIndex];
+                }
+                if (hasLess) {
+                    while (nextState <= prevState) {
+                        stateListIndex++;
+                        if (stateListIndex >= allowedStatesCount) {
+                            stateListIndex = 0;
                             break;
                         }
+                        if (nextState == prevState) break;
+                        nextState = allowedStatesList[stateListIndex];
                     }
-                } else
-                    stateListIndex++;
-                stateListIndex %= allowedStatesCount;
+                    nextState = allowedStatesList[stateListIndex];
+                }
             }
             if (Utilities.IsValid(masterSwitch)) {
-                masterSwitch.state = allowedStatesList[stateListIndex];
+                masterSwitch.state = nextState;
                 masterSwitch._UpdateAndSync();
 #if VRC_ENABLE_PLAYER_PERSISTENCE
                 masterSwitch._Save();
 #endif
             } else {
-                state = allowedStatesList[stateListIndex];
+                state = nextState;
                 _UpdateAndSync();
 #if VRC_ENABLE_PLAYER_PERSISTENCE
                 _Save();
