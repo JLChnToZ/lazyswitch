@@ -111,14 +111,6 @@ namespace JLChnToZ.VRC {
                             ToggleActive(destObj, objectType);
                     }
                 }
-                using (ListPool<byte>.Get(out var allowStates)) {
-                    for (int k = 0; k < 32; k++) {
-                        if ((sw.allowedStatesMask & (1 << k)) == 0) continue;
-                        allowStates.Add((byte)k);
-                    }
-                    sw.allowedStatesList = allowStates.ToArray();
-                    sw.allowedStatesCount = allowStates.Count;
-                }
             }
             masterSwitch.stateCount = Mathf.Max(masterSwitch.stateCount, sw.targetObjectGroupOffsets.Length + 1);
             sw.targetObjectGroupOffsets = Array.Empty<int>(); // Clean up on build to save space
@@ -152,6 +144,7 @@ namespace JLChnToZ.VRC {
 #endif
                 sw.isSynced = false;
                 CheckAndUpdateSyncMode(sw);
+                SetAllowedStates(sw);
             }
 #if VRC_ENABLE_PLAYER_PERSISTENCE && (UNITY_ANDROID || UNITY_IOS)
             if (masterSwitch.separatePersistencePerPlatform && !string.IsNullOrEmpty(masterSwitch.persistenceKey))
@@ -162,6 +155,19 @@ namespace JLChnToZ.VRC {
 #endif
 #endif
             CheckAndUpdateSyncMode(masterSwitch);
+            SetAllowedStates(masterSwitch);
+        }
+
+        static void SetAllowedStates(LazySwitch sw) {
+            sw.allowedStatesMask &= ~((~0) << sw.stateCount);
+            using (ListPool<byte>.Get(out var allowStates)) {
+                for (int state = 0; state < sw.stateCount; state++) {
+                    if ((sw.allowedStatesMask & (1 << state)) == 0) continue;
+                    allowStates.Add((byte)state);
+                }
+                sw.allowedStatesList = allowStates.ToArray();
+                sw.allowedStatesCount = allowStates.Count;
+            }
         }
 
         void ProcessPlayerDetectors(PlayerEnterDetector ped) {
