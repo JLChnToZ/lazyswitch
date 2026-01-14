@@ -28,11 +28,11 @@ namespace JLChnToZ.VRC {
         [SerializeField, LocalizedLabel] internal bool isSynced;
         [SerializeField, LocalizedLabel] internal bool isRandomized;
         [SerializeField, LocalizedLabel] internal LazySwitch masterSwitch;
-        [SerializeField, HideInInspector] internal LazySwitch[] slaveSwitches;
+        [SerializeField] internal LazySwitch[] slaveSwitches;
         [SerializeField] internal Object[] targetObjects;
-        [SerializeField, HideInInspector] internal SwitchDrivenType[] targetObjectTypes;
-        [SerializeField, HideInInspector] internal int[] targetObjectEnableMask;
-        [SerializeField, HideInInspector] internal string[] targetObjectAnimatorKeys;
+        [SerializeField] internal SwitchDrivenType[] targetObjectTypes;
+        [SerializeField] internal int[] targetObjectEnableMask;
+        [SerializeField] internal string[] targetObjectAnimatorKeys;
         [SerializeField] internal int[] targetObjectGroupOffsets;
         [SerializeField] internal int stateCount;
         [SerializeField] internal int allowedStatesMask = -1;
