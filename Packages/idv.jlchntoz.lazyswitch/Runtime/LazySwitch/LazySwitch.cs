@@ -28,12 +28,16 @@ namespace JLChnToZ.VRC {
         [SerializeField, LocalizedLabel] internal bool isSynced;
         [SerializeField, LocalizedLabel] internal bool isRandomized;
         [SerializeField, LocalizedLabel] internal LazySwitch masterSwitch;
+        [SerializeField, HideInInspector, BindUdonSharpEvent]
+        LanguageManager languageManager;
         [SerializeField] internal LazySwitch[] slaveSwitches;
         [SerializeField] internal Object[] targetObjects;
         [SerializeField] internal SwitchDrivenType[] targetObjectTypes;
         [SerializeField] internal int[] targetObjectEnableMask;
         [SerializeField] internal string[] targetObjectAnimatorKeys;
         [SerializeField] internal int[] targetObjectGroupOffsets;
+        [SerializeField] internal string[] tooltipTexts;
+        [SerializeField, LocalizedLabel] internal bool useLocalizedTooltips;
         [SerializeField] internal int stateCount;
         [SerializeField] internal int allowedStatesMask = -1;
         [SerializeField] internal byte[] allowedStatesList;
@@ -72,6 +76,7 @@ namespace JLChnToZ.VRC {
         }
 
         void OnEnable() {
+            if (allowedStatesCount <= 0) DisableInteractive = true;
             if (Utilities.IsValid(masterSwitch)) {
                 _UpdateState();
                 return;
@@ -192,6 +197,7 @@ namespace JLChnToZ.VRC {
                 _Save();
 #endif
             }
+            if (Utilities.IsValid(tooltipTexts)) UpdateInteractionText(nextState);
         }
 
         public override void OnPreSerialization() {
@@ -319,6 +325,26 @@ namespace JLChnToZ.VRC {
                         break;
                 }
             }
+        }
+
+#if COMPILER_UDONSHARP
+        public
+#endif
+        void _OnLanguageChanged() {
+            if (!Utilities.IsValid(tooltipTexts)) return;
+            UpdateInteractionText(State);
+        }
+
+        void UpdateInteractionText(int state) {
+            if (state >= tooltipTexts.Length) return;
+            var tooltipText = tooltipTexts[state];
+            if (string.IsNullOrEmpty(tooltipText)) return;
+            var localizedText = tooltipText;
+            if (useLocalizedTooltips && Utilities.IsValid(languageManager)) {
+                localizedText = languageManager.GetLocale(tooltipText);
+                if (string.IsNullOrEmpty(localizedText)) localizedText = tooltipText;
+            }
+            InteractionText = localizedText;
         }
     }
 }

@@ -145,6 +145,7 @@ namespace JLChnToZ.VRC {
                 sw.isSynced = false;
                 CheckAndUpdateSyncMode(sw);
                 SetAllowedStates(sw);
+                SyncTooltipText(sw);
             }
 #if VRC_ENABLE_PLAYER_PERSISTENCE && (UNITY_ANDROID || UNITY_IOS)
             if (masterSwitch.separatePersistencePerPlatform && !string.IsNullOrEmpty(masterSwitch.persistenceKey))
@@ -156,6 +157,7 @@ namespace JLChnToZ.VRC {
 #endif
             CheckAndUpdateSyncMode(masterSwitch);
             SetAllowedStates(masterSwitch);
+            SyncTooltipText(masterSwitch);
         }
 
         static void SetAllowedStates(LazySwitch sw) {
@@ -168,6 +170,11 @@ namespace JLChnToZ.VRC {
                 sw.allowedStatesList = allowStates.ToArray();
                 sw.allowedStatesCount = allowStates.Count;
             }
+        }
+        
+        static void SyncTooltipText(LazySwitch sw) {
+            if (sw.tooltipTexts == null || sw.tooltipTexts.Length == 0) return;
+            sw.tooltipTexts[0] = UdonSharpEditorUtility.GetBackingUdonBehaviour(sw).interactText;
         }
 
         void ProcessPlayerDetectors(PlayerEnterDetector ped) {

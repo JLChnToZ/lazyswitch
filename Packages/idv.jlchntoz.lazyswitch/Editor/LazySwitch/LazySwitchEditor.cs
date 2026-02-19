@@ -23,9 +23,10 @@ namespace JLChnToZ.VRC {
     sealed class LazySwitchEditor : LazySwitchEditorBase {
         static readonly string[] allowedStatesOptions = new string[32];
         static readonly List<(UnityObject component, SwitchDrivenType subType, string parameter)> menuComponents = new List<(UnityObject, SwitchDrivenType, string)>();
-        static GUIContent tempContent;
+        static GUIContent tempContent, tempContent2;
         SerializedProperty stateProp, isSyncedProp, isRandomizedProp, masterSwitchProp, fixupModeProp, allowedStatesMaskProp,
-            targetObjectsProp, targetObjectTypesProp, targetObjectGroupOffsetsProp, targetObjectEnableMaskProp, targetObjectAnimatorKeysProp;
+            targetObjectsProp, targetObjectTypesProp, targetObjectGroupOffsetsProp, targetObjectEnableMaskProp, targetObjectAnimatorKeysProp,
+            tooltipTextsProp, useLocalizedTooltipsProp;
 #if VRC_ENABLE_PLAYER_PERSISTENCE
         SerializedProperty persistenceKeyProp, separatePersistencePerPlatformProp, separatePersistenceForVRProp;
 #endif
@@ -74,6 +75,7 @@ namespace JLChnToZ.VRC {
 
         void OnEnable() {
             if (tempContent == null) tempContent = new GUIContent();
+            if (tempContent2 == null) tempContent2 = new GUIContent();
             stateProp = serializedObject.FindProperty(nameof(LazySwitch.state));
             isSyncedProp = serializedObject.FindProperty(nameof(LazySwitch.isSynced));
             isRandomizedProp = serializedObject.FindProperty(nameof(LazySwitch.isRandomized));
@@ -83,6 +85,8 @@ namespace JLChnToZ.VRC {
             targetObjectGroupOffsetsProp = serializedObject.FindProperty(nameof(LazySwitch.targetObjectGroupOffsets));
             targetObjectEnableMaskProp = serializedObject.FindProperty(nameof(LazySwitch.targetObjectEnableMask));
             targetObjectAnimatorKeysProp = serializedObject.FindProperty(nameof(LazySwitch.targetObjectAnimatorKeys));
+            tooltipTextsProp = serializedObject.FindProperty(nameof(LazySwitch.tooltipTexts));
+            useLocalizedTooltipsProp = serializedObject.FindProperty(nameof(LazySwitch.useLocalizedTooltips));
             fixupModeProp = serializedObject.FindProperty(nameof(LazySwitch.fixupMode));
             allowedStatesMaskProp = serializedObject.FindProperty(nameof(LazySwitch.allowedStatesMask));
 #if VRC_ENABLE_PLAYER_PERSISTENCE
@@ -192,6 +196,7 @@ namespace JLChnToZ.VRC {
                         allowedStatesMaskProp.intValue,
                         allowedStatesOptions
                     );
+                EditorGUILayout.PropertyField(useLocalizedTooltipsProp);
                 EditorGUILayout.Space();
                 targetObjectsList.DoLayoutList();
             }
@@ -258,8 +263,28 @@ namespace JLChnToZ.VRC {
                         masterSwitchState = stateProp.intValue;
                     }
                 }
-                EditorGUI.LabelField(labelRect, tempContent, labelStyle);
-                if (entry.isSeparator) return;
+                if (entry.isSeparator)
+                    using (var changed = new EditorGUI.ChangeCheckScope()) {
+                        var labelWidth = EditorGUIUtility.labelWidth;
+                        EditorGUIUtility.labelWidth = labelWidth - 36;
+                        labelRect.height = EditorGUIUtility.singleLineHeight;
+                        entry.parameter = EditorGUI.TextField(labelRect, tempContent, entry.parameter);
+                        EditorGUIUtility.labelWidth = labelWidth;
+                        if (changed.changed) {
+                            targetObjectsEntries[index] = entry;
+                            entriesUpdated = true;
+                        }
+                        return;
+                    }
+                else {
+                    var ub = UdonSharpEditorUtility.GetBackingUdonBehaviour(target as LazySwitch);
+                    tempContent2.text = ub != null ? ub.interactText : "";
+                    tempContent2.tooltip = i18n["JLChnToZ.VRC.LazySwitch.defaultLocalizedTooltips:tooltip"];
+                    var labelWidth = EditorGUIUtility.labelWidth;
+                    EditorGUIUtility.labelWidth = labelWidth - 36;
+                    EditorGUI.LabelField(labelRect, tempContent, tempContent2, labelStyle);
+                    EditorGUIUtility.labelWidth = labelWidth;
+                }
                 rect.y += labelRect.height;
             }
             rect.height = EditorStyles.objectField.CalcHeight(GUIContent.none, EditorGUIUtility.currentViewWidth);
@@ -503,6 +528,8 @@ namespace JLChnToZ.VRC {
             SaveEntries();
         }
 
+        string GetTooltipTextAt(int index) => tooltipTextsProp.arraySize > index ? tooltipTextsProp.GetArrayElementAtIndex(index).stringValue : null;
+
         void LoadEntries() {
             serializedObject.Update();
             targetObjectsEntries.Clear();
@@ -527,7 +554,7 @@ namespace JLChnToZ.VRC {
             for (int i = 0; i < targetObjectsProp.arraySize; i++) {
                 while (s < targetObjectGroupOffsetsProp.arraySize) {
                     if (targetObjectGroupOffsetsProp.GetArrayElementAtIndex(s).intValue > i) break;
-                    targetObjectsEntries.Add(new Entry(++s));
+                    targetObjectsEntries.Add(new Entry(++s, GetTooltipTextAt(s)));
                 }
                 targetObjectsEntries.Add(new Entry(
                     targetObjectsProp.GetArrayElementAtIndex(i).objectReferenceValue,
@@ -538,16 +565,21 @@ namespace JLChnToZ.VRC {
                 ));
             }
             while (s < targetObjectGroupOffsetsProp.arraySize)
-                targetObjectsEntries.Add(new Entry(++s));
+                targetObjectsEntries.Add(new Entry(++s, GetTooltipTextAt(s)));
         }
 
         void SaveEntries() {
             int i = 0, s = 0;
+            tooltipTextsProp.arraySize = 0;
             foreach (var entry in targetObjectsEntries)
                 if (entry.isSeparator) {
                     if (targetObjectGroupOffsetsProp.arraySize <= s + 1) targetObjectGroupOffsetsProp.arraySize = s + 1;
                     targetObjectGroupOffsetsProp.GetArrayElementAtIndex(s).intValue = i;
                     s++;
+                    if (!string.IsNullOrEmpty(entry.parameter)) {
+                        if (tooltipTextsProp.arraySize <= s + 1) tooltipTextsProp.arraySize = s + 1;
+                        tooltipTextsProp.GetArrayElementAtIndex(s).stringValue = entry.parameter;
+                    }
                 } else {
                     if (targetObjectsProp.arraySize <= i + 1) targetObjectsProp.arraySize = i + 1;
                     targetObjectsProp.GetArrayElementAtIndex(i).objectReferenceValue = entry.targetObject;
@@ -573,13 +605,13 @@ namespace JLChnToZ.VRC {
             public string parameter;
             public bool isActive;
 
-            public Entry(byte separatorIndex) {
+            public Entry(byte separatorIndex, string tooltip = null) {
                 isSeparator = true;
                 this.separatorIndex = separatorIndex;
                 targetObject = null;
                 objectType = SwitchDrivenType.Unknown;
                 isActive = false;
-                parameter = null;
+                parameter = tooltip;
             }
 
             public Entry(UnityObject targetObject, byte separatorIndex, bool isActive = false, SwitchDrivenType objectType = SwitchDrivenType.Unknown, string parameter = null) {
