@@ -262,10 +262,8 @@ namespace JLChnToZ.VRC {
             if ((targetObjectsEntries.Count != 0 && !targetObjectsEntries[0].isSeparator) || !InitBackingUdonSerializedProperties())
                 EditorGUI.LabelField(rect, i18n["JLChnToZ.VRC.LazySwitch.state:title"], EditorStyles.boldLabel);
             else {
-                var rect2 = rect;
-                rect2.height = EditorGUIUtility.singleLineHeight;
                 backingUdonSerializedObject.Update();
-                EditorGUI.PropertyField(rect2, interactTextProp, i18n.GetLocalizedContent("JLChnToZ.VRC.LazySwitch.state:title"));
+                EditorGUI.PropertyField(rect, interactTextProp, i18n.GetLocalizedContent("JLChnToZ.VRC.LazySwitch.state:title"));
                 backingUdonSerializedObject.ApplyModifiedProperties();
             }
             HandleDrop(rect);
