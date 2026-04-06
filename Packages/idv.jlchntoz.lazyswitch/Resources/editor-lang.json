@@ -48,7 +48,9 @@
         "JLChnToZ.VRC.EnableDetector.detectOnDisable": "Detect On Disable",
         "JLChnToZ.VRC.EnableDetector.detectOnDisable:tooltip": "Whether to detect disable event.",
         "JLChnToZ.VRC.EnableDetector.disableState": "Disable State",
-        "JLChnToZ.VRC.EnableDetector.disableState:tooltip": "The state to set when disabled.\n-1 means the next/random state according to the switch settings."
+        "JLChnToZ.VRC.EnableDetector.disableState:tooltip": "The state to set when disabled.\n-1 means the next/random state according to the switch settings.",
+        "JLChnToZ.VRC.ToggleGroupHelper.toggles": "Toggles",
+        "JLChnToZ.VRC.ToggleGroupHelper.toggles:tooltip": "The toggles in this group. The toggles are synchronized to the master LazySwitch according to their order in this list.\nWhen one of the toggles is interacted by user, the master switch will switch to the state with the same index as this toggle in the list, and vice versa."
     },
     "zh-hant": {
         "JLChnToZ.VRC.LazySwitch.multiedit": "無法顯示值，因為它們在多個物件中不同。\n嘗試添加、重新排序或更改值將導致所有選定的開關具有相同的值。",
@@ -99,7 +101,9 @@
         "JLChnToZ.VRC.EnableDetector.detectOnDisable": "關閉時檢測",
         "JLChnToZ.VRC.EnableDetector.detectOnDisable:tooltip": "是否檢關閉事件。",
         "JLChnToZ.VRC.EnableDetector.disableState": "關閉時狀態",
-        "JLChnToZ.VRC.EnableDetector.disableState:tooltip": "關閉時要設置的狀態。\n-1 表示根據開關設置的下一個/隨機狀態。"
+        "JLChnToZ.VRC.EnableDetector.disableState:tooltip": "關閉時要設置的狀態。\n-1 表示根據開關設置的下一個/隨機狀態。",
+        "JLChnToZ.VRC.ToggleGroupHelper.toggles": "開關群組",
+        "JLChnToZ.VRC.ToggleGroupHelper.toggles:tooltip": "此群組中的開關。這些開關將根據它們在此列表中的順序與主 LazySwitch 同步。\n當使用者操作其中一個開關時，主開關將切換到與此開關在列表中具有相同索引的狀態；反之亦然。"
     },
     "zh-hans": {
         "JLChnToZ.VRC.LazySwitch.multiedit": "无法显示值，因为它们在多个对象中不同。\n尝试添加、重新排序或更改值将导致所有选定的开关具有相同的值。",
@@ -150,7 +154,9 @@
         "JLChnToZ.VRC.EnableDetector.detectOnDisable": "关闭时检测",
         "JLChnToZ.VRC.EnableDetector.detectOnDisable:tooltip": "是否检测关闭事件。",
         "JLChnToZ.VRC.EnableDetector.disableState": "关闭时状态",
-        "JLChnToZ.VRC.EnableDetector.disableState:tooltip": "关闭时要设置的状态。\n-1 表示根据开关设置的下一个/随机状态。"
+        "JLChnToZ.VRC.EnableDetector.disableState:tooltip": "关闭时要设置的状态。\n-1 表示根据开关设置的下一个/随机状态。",
+        "JLChnToZ.VRC.ToggleGroupHelper.toggles": "开关群组",
+        "JLChnToZ.VRC.ToggleGroupHelper.toggles:tooltip": "此群组中的开关。这些开关将根据它们在此列表中的顺序与主 LazySwitch 同步。\n当用户操作其中一个开关时，主开关将切换到与此开关在列表中具有相同索引的状态；反之亦然。"
     },
     "ja": {
         "JLChnToZ.VRC.LazySwitch.multiedit": "複数のオブジェクトで値が異なるため、値を表示できません。\n値を追加、並べ替え、または変更しようとすると、選択したすべてのスイッチが同じ値になります。",
@@ -201,7 +207,9 @@
         "JLChnToZ.VRC.EnableDetector.detectOnDisable": "無効時に検出",
         "JLChnToZ.VRC.EnableDetector.detectOnDisable:tooltip": "無効化イベントを検出するかどうか。",
         "JLChnToZ.VRC.EnableDetector.disableState": "無効状態",
-        "JLChnToZ.VRC.EnableDetector.disableState:tooltip": "無効にしたときに設定する状態。\n-1 は、スイッチの設定に応じた次の/ランダムな状態を意味します。"
+        "JLChnToZ.VRC.EnableDetector.disableState:tooltip": "無効にしたときに設定する状態。\n-1 は、スイッチの設定に応じた次の/ランダムな状態を意味します。",
+        "JLChnToZ.VRC.ToggleGroupHelper.toggles": "トグル",
+        "JLChnToZ.VRC.ToggleGroupHelper.toggles:tooltip": "このグループのトグル。これらのトグルは、このリスト内の順序に従ってマスター LazySwitch と同期されます。\nユーザーがこれらのトグルのいずれかを操作すると、マスタースイッチはこのリスト内のこのトグルと同じインデックスを持つ状態に切り替わり、その逆も同様です。"
     },
     "ko": {
         "JLChnToZ.VRC.LazySwitch.multiedit": "여러 객체에서 값이 다르기 때문에 값을 표시할 수 없습니다.\n값을 추가, 재정렬 또는 변경하려고 하면 선택한 모든 스위치가 동일한 값을 갖게 됩니다.",
@@ -252,6 +260,8 @@
         "JLChnToZ.VRC.EnableDetector.detectOnDisable": "비활성화 시 감지",
         "JLChnToZ.VRC.EnableDetector.detectOnDisable:tooltip": "비활성화 이벤트를 감지할지 여부입니다.",
         "JLChnToZ.VRC.EnableDetector.disableState": "비활성 상태",
-        "JLChnToZ.VRC.EnableDetector.disableState:tooltip": "비활성화할 때 설정할 상태입니다.\n-1은 스위치 설정에 따른 다음/무작위 상태를 의미합니다。"
+        "JLChnToZ.VRC.EnableDetector.disableState:tooltip": "비활성화할 때 설정할 상태입니다.\n-1은 스위치 설정에 따른 다음/무작위 상태를 의미합니다.",
+        "JLChnToZ.VRC.ToggleGroupHelper.toggles": "토글",
+        "JLChnToZ.VRC.ToggleGroupHelper.toggles:tooltip": "이 그룹의 토글입니다. 이 토글은 이 목록 내의 순서에 따라 마스터 LazySwitch와 동기화됩니다.\n사용자가 이 토글 중 하나를 조작하면 마스터 스위치는 이 목록에서 이 토글과 동일한 인덱스를 가진 상태로 전환되고 그 반대도 마찬가지입니다."
     }
 }

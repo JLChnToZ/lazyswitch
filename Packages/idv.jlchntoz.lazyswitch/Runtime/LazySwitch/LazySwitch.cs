@@ -17,7 +17,7 @@ namespace JLChnToZ.VRC {
     [AddComponentMenu("JLChnToZ/Lazy Switch")]
     [BindEvent(typeof(Button), nameof(Button.onClick), nameof(Interact))]
     [BindEvent(typeof(Toggle), nameof(Toggle.onValueChanged), nameof(Interact))]
-    public class LazySwitch : UdonSharpBehaviour {
+    public class LazySwitch : UdonSharpEventSender {
         [SerializeField, UdonMeta(UdonMetaAttributeType.NetworkSyncModeManual)] bool isManualSync;
 #if COMPILER_UDONSHARP
         public
@@ -325,6 +325,7 @@ namespace JLChnToZ.VRC {
                         break;
                 }
             }
+            SendEvent("_OnLazySwitchStateChanged");
         }
 
 #if COMPILER_UDONSHARP

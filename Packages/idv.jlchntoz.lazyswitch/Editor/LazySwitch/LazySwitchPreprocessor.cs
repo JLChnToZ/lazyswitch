@@ -16,6 +16,7 @@ namespace JLChnToZ.VRC {
     sealed class LazySwitchPreprocessor : IPreprocessor {
         readonly List<LazySwitch> switches = new List<LazySwitch>();
         readonly Dictionary<LazySwitch, List<LazySwitch>> switchGroups = new Dictionary<LazySwitch, List<LazySwitch>>();
+        readonly Dictionary<string, LazySwitch> persistenceKeyToMasterSwitch = new Dictionary<string, LazySwitch>();
         readonly Dictionary<UnityObject, (SwitchDrivenType objectType, int onFlags, int offFlags)> targetObjectEnableMask = new Dictionary<UnityObject, (SwitchDrivenType, int, int)>();
 
         public int Priority => -1;
@@ -38,6 +39,18 @@ namespace JLChnToZ.VRC {
                 var next = masterSwitch.masterSwitch;
                 if (next == sw) masterSwitch.masterSwitch = next = null;
                 if (next == null) {
+                    // One persistency key should be assigned to only one master switch.
+                    // If there are multiple master switches with the same persistency key,
+                    // they will be merged into one group and the persistency key will be cleared to avoid conflict.
+                    if (!string.IsNullOrEmpty(masterSwitch.persistenceKey)) {
+                        if (!persistenceKeyToMasterSwitch.TryGetValue(masterSwitch.persistenceKey, out var existing)) {
+                            persistenceKeyToMasterSwitch[masterSwitch.persistenceKey] = masterSwitch;
+                        } else if (existing != masterSwitch) {
+                            masterSwitch.persistenceKey = null;
+                            masterSwitch.masterSwitch = existing;
+                            continue;
+                        }
+                    }
                     if (!switchGroups.TryGetValue(masterSwitch, out var group)) {
                         switchGroups[masterSwitch] = group = new List<LazySwitch>();
                         masterSwitch.stateCount = 2;
