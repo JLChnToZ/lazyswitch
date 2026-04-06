@@ -143,7 +143,7 @@ namespace JLChnToZ.VRC {
 #endif
 
         public override void Interact() {
-            if (gameObject.activeInHierarchy && enabled && !DisableInteractive) _SwitchState();
+            if (isActiveAndEnabled && !DisableInteractive) _SwitchState();
         }
 
         /// <summary>
@@ -270,7 +270,7 @@ namespace JLChnToZ.VRC {
         public
 #endif
         void _UpdateState() {
-            if (!enabled || !gameObject.activeInHierarchy) return;
+            if (!isActiveAndEnabled) return;
             Init();
             int stateMask = 1 << state;
             for (int i = 0; i < objectCount; i++) {
