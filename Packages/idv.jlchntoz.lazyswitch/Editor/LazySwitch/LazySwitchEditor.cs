@@ -191,6 +191,8 @@ namespace JLChnToZ.VRC {
                     if (!string.IsNullOrEmpty(persistenceKeyProp.stringValue)) {
                         if (isSyncedProp.boolValue)
                             EditorGUILayout.HelpBox(i18n["JLChnToZ.VRC.LazySwitch.persistence:info"], MessageType.Info);
+                        if ((target as LazySwitch).IsPersistenceKeyShared)
+                            EditorGUILayout.HelpBox(i18n["JLChnToZ.VRC.LazySwitch.persistence:info2"], MessageType.Info);
                         using (new EditorGUI.IndentLevelScope()) {
                             EditorGUILayout.PropertyField(separatePersistencePerPlatformProp);
                             EditorGUILayout.PropertyField(separatePersistenceForVRProp);
@@ -323,9 +325,9 @@ namespace JLChnToZ.VRC {
             bool entryUpdated = false;
             if (isNotPlaying) {
                 bool isCurrentState = masterSwitchState == entry.separatorIndex;
-                bool isObjectActive = syncActiveState ? IsActive(entry.targetObject, entry.objectType, entry.parameter, isCurrentState) : entry.isActive;
+                bool isObjectActive = syncActiveState ? isCurrentState == IsActive(entry.targetObject, entry.objectType, entry.parameter, isCurrentState) : entry.isActive;
                 var visibleIcon = EditorGUIUtility.IconContent(
-                    isObjectActive == isCurrentState ? "VisibilityOn" : "VisibilityOff"
+                    isObjectActive ? "VisibilityOn" : "VisibilityOff"
                 );
                 var buttonStyle = EditorStyles.iconButton;
                 var buttonRect = rect;
@@ -583,6 +585,8 @@ namespace JLChnToZ.VRC {
             }
             if (sizeUpdated) serializedObject.ApplyModifiedProperties();
             byte s = 0;
+            var masterSwitch = masterSwitchProp.objectReferenceValue as LazySwitch;
+            masterSwitchState = masterSwitch != null ? masterSwitch.state : stateProp.intValue;
             for (int i = 0; i < targetObjectsProp.arraySize; i++) {
                 while (s < targetObjectGroupOffsetsProp.arraySize) {
                     if (targetObjectGroupOffsetsProp.GetArrayElementAtIndex(s).intValue > i) break;
@@ -592,6 +596,7 @@ namespace JLChnToZ.VRC {
                     targetObjectsProp.GetArrayElementAtIndex(i).objectReferenceValue,
                     s,
                     targetObjectEnableMaskProp.GetArrayElementAtIndex(i).intValue != 0,
+                    masterSwitchState,
                     (SwitchDrivenType)targetObjectTypesProp.GetArrayElementAtIndex(i).intValue,
                     targetObjectAnimatorKeysProp.GetArrayElementAtIndex(i).stringValue
                 ));
@@ -618,7 +623,7 @@ namespace JLChnToZ.VRC {
                     if (targetObjectTypesProp.arraySize <= i + 1) targetObjectTypesProp.arraySize = i + 1;
                     targetObjectTypesProp.GetArrayElementAtIndex(i).intValue = (int)entry.objectType;
                     if (targetObjectEnableMaskProp.arraySize <= i + 1) targetObjectEnableMaskProp.arraySize = i + 1;
-                    targetObjectEnableMaskProp.GetArrayElementAtIndex(i).intValue = entry.isActive ? -1 : 0;
+                    targetObjectEnableMaskProp.GetArrayElementAtIndex(i).intValue = entry.IsActive(masterSwitchState) ? -1 : 0;
                     if (targetObjectAnimatorKeysProp.arraySize <= i + 1) targetObjectAnimatorKeysProp.arraySize = i + 1;
                     targetObjectAnimatorKeysProp.GetArrayElementAtIndex(i).stringValue = entry.parameter;
                     i++;
@@ -646,14 +651,23 @@ namespace JLChnToZ.VRC {
                 parameter = tooltip;
             }
 
-            public Entry(UnityObject targetObject, byte separatorIndex, bool isActive = false, SwitchDrivenType objectType = SwitchDrivenType.Unknown, string parameter = null) {
+            public Entry(
+                UnityObject targetObject,
+                byte separatorIndex,
+                bool isActiveInState = false,
+                int currentActiveStateIndex = -1,
+                SwitchDrivenType objectType = SwitchDrivenType.Unknown,
+                string parameter = null
+            ) {
                 isSeparator = false;
                 this.separatorIndex = separatorIndex;
                 this.targetObject = targetObject;
                 this.objectType = objectType == SwitchDrivenType.Unknown ? GetTypeCode(targetObject) : objectType;
-                this.isActive = isActive;
+                isActive = isActiveInState == (currentActiveStateIndex == separatorIndex);
                 this.parameter = parameter;
             }
+
+            public readonly bool IsActive(int state) => isActive == (state == separatorIndex);
         }
     }
 }

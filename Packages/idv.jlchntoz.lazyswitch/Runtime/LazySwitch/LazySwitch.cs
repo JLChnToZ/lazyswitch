@@ -9,15 +9,25 @@ using VRC.Udon.Common.Interfaces;
 using UdonSharp;
 using JLChnToZ.VRC.Foundation;
 using JLChnToZ.VRC.Foundation.I18N;
+#if !COMPILER_UDONSHARP && UNITY_EDITOR && VRC_ENABLE_PLAYER_PERSISTENCE
+using System.Collections.Generic;
+using System.Runtime.CompilerServices;
+#endif
 
 namespace JLChnToZ.VRC {
     /// <summary>
     /// A multi-purpose switch.
     /// </summary>
+    [ExecuteInEditMode]
     [AddComponentMenu("JLChnToZ/Lazy Switch")]
     [BindEvent(typeof(Button), nameof(Button.onClick), nameof(Interact))]
     [BindEvent(typeof(Toggle), nameof(Toggle.onValueChanged), nameof(Interact))]
     public class LazySwitch : UdonSharpEventSender {
+#if !COMPILER_UDONSHARP && UNITY_EDITOR && VRC_ENABLE_PLAYER_PERSISTENCE
+        static readonly ConditionalWeakTable<LazySwitch, EditorOnlyData> editorOnlyData = new ConditionalWeakTable<LazySwitch, EditorOnlyData>();
+        static readonly Dictionary<string, HashSet<LazySwitch>> persistenceKeyToSwitches = new Dictionary<string, HashSet<LazySwitch>>();
+#endif
+
         [SerializeField, UdonMeta(UdonMetaAttributeType.NetworkSyncModeManual)] bool isManualSync;
 #if COMPILER_UDONSHARP
         public
@@ -76,6 +86,9 @@ namespace JLChnToZ.VRC {
         }
 
         void OnEnable() {
+#if !COMPILER_UDONSHARP && UNITY_EDITOR
+            if (!Application.isPlaying) return;
+#endif
             if (allowedStatesCount <= 0) DisableInteractive = true;
             if (Utilities.IsValid(masterSwitch)) {
                 _UpdateState();
@@ -347,5 +360,41 @@ namespace JLChnToZ.VRC {
             }
             InteractionText = localizedText;
         }
+
+#if !COMPILER_UDONSHARP && UNITY_EDITOR && VRC_ENABLE_PLAYER_PERSISTENCE
+        public bool IsPersistenceKeyShared =>
+            !string.IsNullOrEmpty(persistenceKey) &&
+            persistenceKeyToSwitches.TryGetValue(persistenceKey, out var switches) &&
+            switches.Count > 1;
+
+        void Awake() => OnValidate();
+
+        void OnValidate() {
+            if (Application.isPlaying) return;
+            UnityEditor.EditorApplication.delayCall += SyncPersistenceKey;
+        }
+
+        void SyncPersistenceKey() {
+            if (Application.isPlaying) return;
+            var data = editorOnlyData.GetOrCreateValue(this);
+            if (data.previousPersistenceKey != persistenceKey) {
+                if (!string.IsNullOrEmpty(data.previousPersistenceKey) &&
+                    persistenceKeyToSwitches.TryGetValue(data.previousPersistenceKey, out var switches)) {
+                    switches.Remove(this);
+                    if (switches.Count == 0) persistenceKeyToSwitches.Remove(data.previousPersistenceKey);
+                }
+                if (!string.IsNullOrEmpty(persistenceKey)) {
+                    if (!persistenceKeyToSwitches.TryGetValue(persistenceKey, out switches))
+                        persistenceKeyToSwitches[persistenceKey] = switches = new HashSet<LazySwitch>();
+                    switches.Add(this);
+                }
+                data.previousPersistenceKey = persistenceKey;
+            }
+        }
+
+        class EditorOnlyData {
+            public string previousPersistenceKey;
+        }
+#endif
     }
 }
