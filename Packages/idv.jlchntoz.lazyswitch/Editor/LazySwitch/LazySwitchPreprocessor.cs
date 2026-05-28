@@ -39,6 +39,7 @@ namespace JLChnToZ.VRC {
                 var next = masterSwitch.masterSwitch;
                 if (next == sw) masterSwitch.masterSwitch = next = null;
                 if (next == null) {
+#if VRC_ENABLE_PLAYER_PERSISTENCE
                     // One persistency key should be assigned to only one master switch.
                     // If there are multiple master switches with the same persistency key,
                     // they will be merged into one group and the persistency key will be cleared to avoid conflict.
@@ -51,6 +52,7 @@ namespace JLChnToZ.VRC {
                             continue;
                         }
                     }
+#endif
                     if (!switchGroups.TryGetValue(masterSwitch, out var group)) {
                         switchGroups[masterSwitch] = group = new List<LazySwitch>();
                         masterSwitch.stateCount = 2;
