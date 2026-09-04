@@ -5,6 +5,7 @@ using VRC.SDKBase;
 #if VRC_ENABLE_PLAYER_PERSISTENCE
 using VRC.SDK3.Persistence;
 #endif
+using VRC.Dynamics;
 using VRC.Udon.Common.Interfaces;
 using UdonSharp;
 using JLChnToZ.VRC.Foundation;
@@ -157,6 +158,10 @@ namespace JLChnToZ.VRC {
 
         public override void Interact() {
             if (isActiveAndEnabled && !DisableInteractive) _SwitchState();
+        }
+
+        public override void OnContactEnter(ContactEnterInfo contactInfo) {
+            if (isActiveAndEnabled && contactInfo.contactSender.player.isLocal) _SwitchState();
         }
 
         /// <summary>
