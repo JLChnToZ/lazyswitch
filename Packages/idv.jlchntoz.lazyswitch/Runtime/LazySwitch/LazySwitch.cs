@@ -41,6 +41,7 @@ namespace JLChnToZ.VRC {
         [SerializeField, LocalizedLabel] internal LazySwitch masterSwitch;
         [SerializeField, HideInInspector, BindUdonSharpEvent]
         LanguageManager languageManager;
+        [SerializeField, HideInInspector, Resolve(".")] VRC_Pickup pickup;
         [SerializeField] internal LazySwitch[] slaveSwitches;
         [SerializeField] internal Object[] targetObjects;
         [SerializeField] internal SwitchDrivenType[] targetObjectTypes;
@@ -90,7 +91,15 @@ namespace JLChnToZ.VRC {
 #if !COMPILER_UDONSHARP && UNITY_EDITOR
             if (!Application.isPlaying) return;
 #endif
-            if (allowedStatesCount <= 0) DisableInteractive = true;
+            if (Utilities.IsValid(pickup)) {
+                DisableInteractive = true;
+                var interactionText = InteractionText;
+                if (!string.IsNullOrEmpty(interactionText)) {
+                    pickup.UseText = interactionText;
+                    InteractionText = "";
+                }
+            } else if (allowedStatesCount <= 0)
+                DisableInteractive = true;
             if (Utilities.IsValid(masterSwitch)) {
                 _UpdateState();
                 return;
@@ -160,8 +169,14 @@ namespace JLChnToZ.VRC {
             if (isActiveAndEnabled && !DisableInteractive) _SwitchState();
         }
 
+        public override void OnPickupUseDown() {
+            if (isActiveAndEnabled && Utilities.IsValid(pickup)) _SwitchState();
+        }
+
         public override void OnContactEnter(ContactEnterInfo contactInfo) {
-            if (isActiveAndEnabled && contactInfo.contactSender.player.isLocal) _SwitchState();
+            if (!isActiveAndEnabled) return;
+            var player = contactInfo.contactSender.player;
+            if (Utilities.IsValid(player) && player.isLocal) _SwitchState();
         }
 
         /// <summary>
@@ -363,7 +378,10 @@ namespace JLChnToZ.VRC {
                 localizedText = languageManager.GetLocale(tooltipText);
                 if (string.IsNullOrEmpty(localizedText)) localizedText = tooltipText;
             }
-            InteractionText = localizedText;
+            if (Utilities.IsValid(pickup))
+                pickup.UseText = localizedText;
+            else
+                InteractionText = localizedText;
         }
 
 #if !COMPILER_UDONSHARP && UNITY_EDITOR && VRC_ENABLE_PLAYER_PERSISTENCE
