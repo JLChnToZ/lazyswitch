@@ -4,6 +4,8 @@ using UnityEngine;
 using UnityEngine.Pool;
 using UnityEditor;
 using UnityEditorInternal;
+using VRC.SDKBase;
+using VRC.Dynamics;
 using VRC.Udon;
 using VRC.Udon.Common.Interfaces;
 using UdonSharp;
@@ -24,17 +26,18 @@ namespace JLChnToZ.VRC {
         static readonly string[] allowedStatesOptions = new string[32];
         static readonly List<(UnityObject component, SwitchDrivenType subType, string parameter)> menuComponents = new List<(UnityObject, SwitchDrivenType, string)>();
         static GUIContent tempContent;
-        SerializedProperty stateProp, isSyncedProp, isRandomizedProp, masterSwitchProp, fixupModeProp, allowedStatesMaskProp,
+        SerializedProperty stateProp, isSyncedProp, isRandomizedProp, isInteractiveProp, masterSwitchProp, fixupModeProp, allowedStatesMaskProp,
             targetObjectsProp, targetObjectTypesProp, targetObjectGroupOffsetsProp, targetObjectEnableMaskProp, targetObjectAnimatorKeysProp,
             tooltipTextsProp, useLocalizedTooltipsProp, interactTextProp;
-#if VRC_ENABLE_PLAYER_PERSISTENCE
         SerializedProperty persistenceKeyProp, separatePersistencePerPlatformProp, separatePersistenceForVRProp;
-#endif
         ReorderableList targetObjectsList;
         readonly List<Entry> targetObjectsEntries = new List<Entry>();
         int masterSwitchState;
         bool syncActiveState;
         bool entriesUpdated;
+        bool isInteractive;
+        VRC_Pickup pickup;
+        ContactReceiver contactReceiver;
         SerializedObject backingUdonSerializedObject;
         UdonBehaviour[] backingUdonBehaviours;
 
@@ -80,6 +83,7 @@ namespace JLChnToZ.VRC {
             stateProp = serializedObject.FindProperty(nameof(LazySwitch.state));
             isSyncedProp = serializedObject.FindProperty(nameof(LazySwitch.isSynced));
             isRandomizedProp = serializedObject.FindProperty(nameof(LazySwitch.isRandomized));
+            isInteractiveProp = serializedObject.FindProperty(nameof(LazySwitch.isInteractive));
             masterSwitchProp = serializedObject.FindProperty(nameof(LazySwitch.masterSwitch));
             targetObjectsProp = serializedObject.FindProperty(nameof(LazySwitch.targetObjects));
             targetObjectTypesProp = serializedObject.FindProperty(nameof(LazySwitch.targetObjectTypes));
@@ -90,11 +94,9 @@ namespace JLChnToZ.VRC {
             useLocalizedTooltipsProp = serializedObject.FindProperty(nameof(LazySwitch.useLocalizedTooltips));
             fixupModeProp = serializedObject.FindProperty(nameof(LazySwitch.fixupMode));
             allowedStatesMaskProp = serializedObject.FindProperty(nameof(LazySwitch.allowedStatesMask));
-#if VRC_ENABLE_PLAYER_PERSISTENCE
             persistenceKeyProp = serializedObject.FindProperty(nameof(LazySwitch.persistenceKey));
             separatePersistencePerPlatformProp = serializedObject.FindProperty(nameof(LazySwitch.separatePersistencePerPlatform));
             separatePersistenceForVRProp = serializedObject.FindProperty(nameof(LazySwitch.separatePersistenceForVR));
-#endif
             if (targetObjectsList == null)
                 targetObjectsList = new ReorderableList(targetObjectsEntries, typeof(Entry)) {
                     drawHeaderCallback = DrawTargetObjectHeader,
@@ -108,6 +110,16 @@ namespace JLChnToZ.VRC {
                 };
             LoadEntries();
             Undo.undoRedoPerformed += LoadEntries;
+            pickup = null;
+            contactReceiver = null;
+            foreach (var target in targets) {
+                if (!(target is LazySwitch sw) || (pickup != null && contactReceiver != null))
+                    continue;
+                if (pickup == null)
+                    sw.TryGetComponent(out pickup);
+                if (contactReceiver == null)
+                    sw.TryGetComponent(out contactReceiver);
+            }
         }
 
         void OnDisable() {
@@ -116,6 +128,8 @@ namespace JLChnToZ.VRC {
             backingUdonSerializedObject = null;
             interactTextProp = null;
             backingUdonBehaviours = null;
+            pickup = null;
+            contactReceiver = null;
         }
 
         void CheckAndUpdateSyncMode() {
@@ -154,13 +168,28 @@ namespace JLChnToZ.VRC {
         }
 
         protected override void DrawContent() {
-            if (InitBackingUdonSerializedProperties()) {
+            serializedObject.Update();
+            var isPlaying = EditorApplication.isPlayingOrWillChangePlaymode;
+            if (contactReceiver != null)
+                EditorGUILayout.HelpBox(i18n["JLChnToZ.VRC.LazySwitch.isInteractive.forwardedToContact"], MessageType.Info);
+            bool hasStates = allowedStatesMaskProp.intValue != 0;
+            bool hasPickup = pickup != null;
+            bool showInteractiveOptions = hasStates && !hasPickup;
+            if (showInteractiveOptions)
+                using (new EditorGUI.DisabledScope(isPlaying))
+                    EditorGUILayout.PropertyField(isInteractiveProp);
+            else {
+                using (new EditorGUI.DisabledScope(true))
+                    EditorGUILayout.Toggle(i18n.GetLocalizedContent("JLChnToZ.VRC.LazySwitch.isInteractive"), hasStates && hasPickup);
+                if (hasPickup)
+                    EditorGUILayout.HelpBox(i18n["JLChnToZ.VRC.LazySwitch.isInteractive.forwardedToPickup"], MessageType.Info);
+            }
+            isInteractive = hasStates && isInteractiveProp.boolValue;
+            if (showInteractiveOptions && isInteractive && InitBackingUdonSerializedProperties()) {
                 UdonSharpGUI.DrawInteractSettings(backingUdonBehaviours);
                 EditorGUILayout.Space();
             }
-            serializedObject.Update();
             entriesUpdated = false;
-            var isPlaying = EditorApplication.isPlayingOrWillChangePlaymode;
             using (new EditorGUI.DisabledScope(isPlaying)) {
                 EditorGUILayout.PropertyField(masterSwitchProp);
                 if (masterSwitchProp.hasMultipleDifferentValues) {
@@ -176,9 +205,7 @@ namespace JLChnToZ.VRC {
                         EditorGUILayout.Toggle(i18n["JLChnToZ.VRC.LazySwitch.isSynced"], masterSwitch.isSynced);
                         EditorGUILayout.Toggle(i18n["JLChnToZ.VRC.LazySwitch.isRandomized"], masterSwitch.isRandomized);
                         if (isPlaying) EditorGUILayout.IntField(stateProp.displayName, masterSwitchState);
-#if VRC_ENABLE_PLAYER_PERSISTENCE
                         EditorGUILayout.TextField(persistenceKeyProp.displayName, masterSwitch.persistenceKey);
-#endif
                     }
                     EditorGUILayout.HelpBox(i18n["JLChnToZ.VRC.LazySwitch.masterSwitch:info"], MessageType.Info);
                 } else {
@@ -186,7 +213,6 @@ namespace JLChnToZ.VRC {
                     EditorGUILayout.PropertyField(isRandomizedProp);
                     masterSwitchState = stateProp.intValue;
                     if (isPlaying) EditorGUILayout.PropertyField(stateProp);
-#if VRC_ENABLE_PLAYER_PERSISTENCE
                     EditorGUILayout.PropertyField(persistenceKeyProp);
                     if (!string.IsNullOrEmpty(persistenceKeyProp.stringValue)) {
                         if (isSyncedProp.boolValue)
@@ -198,7 +224,6 @@ namespace JLChnToZ.VRC {
                             EditorGUILayout.PropertyField(separatePersistenceForVRProp);
                         }
                     }
-#endif
                 }
                 EditorGUILayout.PropertyField(fixupModeProp);
                 var fixupMode = (FixupMode)fixupModeProp.intValue;
@@ -222,7 +247,8 @@ namespace JLChnToZ.VRC {
                         allowedStatesMaskProp.intValue,
                         allowedStatesOptions
                     );
-                EditorGUILayout.PropertyField(useLocalizedTooltipsProp);
+                if (isInteractive)
+                    EditorGUILayout.PropertyField(useLocalizedTooltipsProp);
                 EditorGUILayout.Space();
                 targetObjectsList.DoLayoutList();
             }
@@ -261,7 +287,7 @@ namespace JLChnToZ.VRC {
                 EditorGUI.LabelField(rect, i18n["JLChnToZ.VRC.LazySwitch.state:title_playing"], EditorStyles.boldLabel);
                 return;
             }
-            if ((targetObjectsEntries.Count != 0 && !targetObjectsEntries[0].isSeparator) || !InitBackingUdonSerializedProperties())
+            if ((targetObjectsEntries.Count != 0 && !targetObjectsEntries[0].isSeparator) || !InitBackingUdonSerializedProperties() || !isInteractive)
                 EditorGUI.LabelField(rect, i18n["JLChnToZ.VRC.LazySwitch.state:title"], EditorStyles.boldLabel);
             else {
                 backingUdonSerializedObject.Update();
@@ -299,6 +325,7 @@ namespace JLChnToZ.VRC {
                 rect.y += labelRect.height;
                 labelRect.height = EditorGUIUtility.singleLineHeight;
                 if (entry.isSeparator) {
+                    if (!isInteractive) return;
                     using (new EditorGUI.DisabledScope(!isNotPlaying))
                     using (var changed = new EditorGUI.ChangeCheckScope()) {
                         var labelWidth = EditorGUIUtility.labelWidth;

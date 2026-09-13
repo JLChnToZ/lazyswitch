@@ -27,8 +27,13 @@ namespace JLChnToZ.VRC {
             foreach (var kv in switchGroups)
                 ConfigureMasterSwitch(kv.Key, kv.Value);
             switchGroups.Clear();
-            foreach (var sw in switches)
+            foreach (var sw in switches) {
+                CheckAndUpdateSyncMode(sw);
+                SetAllowedStates(sw);
+                SyncTooltipText(sw);
+                AddDummyCollider(sw);
                 UdonSharpEditorUtility.CopyProxyToUdon(sw);
+            }
             foreach (var ped in scene.IterateAllComponents<PlayerEnterDetector>(false))
                 ProcessPlayerDetectors(ped);
         }
@@ -39,7 +44,6 @@ namespace JLChnToZ.VRC {
                 var next = masterSwitch.masterSwitch;
                 if (next == sw) masterSwitch.masterSwitch = next = null;
                 if (next == null) {
-#if VRC_ENABLE_PLAYER_PERSISTENCE
                     // One persistency key should be assigned to only one master switch.
                     // If there are multiple master switches with the same persistency key,
                     // they will be merged into one group and the persistency key will be cleared to avoid conflict.
@@ -52,7 +56,6 @@ namespace JLChnToZ.VRC {
                             continue;
                         }
                     }
-#endif
                     if (!switchGroups.TryGetValue(masterSwitch, out var group)) {
                         switchGroups[masterSwitch] = group = new List<LazySwitch>();
                         masterSwitch.stateCount = 2;
@@ -154,15 +157,11 @@ namespace JLChnToZ.VRC {
                 sw.masterSwitch = masterSwitch;
                 sw.state = masterSwitch.state;
                 sw.stateCount = masterSwitch.stateCount;
-#if VRC_ENABLE_PLAYER_PERSISTENCE
                 sw.persistenceKey = null;
-#endif
                 sw.isSynced = false;
-                CheckAndUpdateSyncMode(sw);
-                SetAllowedStates(sw);
-                SyncTooltipText(sw);
+                switches.Add(sw);
             }
-#if VRC_ENABLE_PLAYER_PERSISTENCE && (UNITY_ANDROID || UNITY_IOS)
+#if UNITY_ANDROID || UNITY_IOS
             if (masterSwitch.separatePersistencePerPlatform && !string.IsNullOrEmpty(masterSwitch.persistenceKey))
 #if UNITY_ANDROID
                 masterSwitch.persistenceKey += "_Android";
@@ -170,9 +169,7 @@ namespace JLChnToZ.VRC {
                 masterSwitch.persistenceKey += "_iOS";
 #endif
 #endif
-            CheckAndUpdateSyncMode(masterSwitch);
-            SetAllowedStates(masterSwitch);
-            SyncTooltipText(masterSwitch);
+            switches.Add(masterSwitch);
         }
 
         static void SetAllowedStates(LazySwitch sw) {
@@ -185,11 +182,22 @@ namespace JLChnToZ.VRC {
                 sw.allowedStatesList = allowStates.ToArray();
                 sw.allowedStatesCount = allowStates.Count;
             }
+            if (sw.allowedStatesCount == 0 || sw.TryGetComponent(out VRC_Pickup _)) sw.isInteractive = false;
         }
-        
+
         static void SyncTooltipText(LazySwitch sw) {
             if (sw.tooltipTexts == null || sw.tooltipTexts.Length == 0) return;
             sw.tooltipTexts[0] = UdonSharpEditorUtility.GetBackingUdonBehaviour(sw).interactText;
+        }
+
+        static void AddDummyCollider(LazySwitch sw) {
+            if (sw == null || sw.TryGetComponent(out Collider _) || sw.TryGetComponent(out VRC_Pickup _)) return;
+            var collider = sw.gameObject.AddComponent<BoxCollider>();
+            collider.isTrigger = true;
+            if (!sw.isInteractive) {
+                collider.enabled = false;
+                collider.size = Vector3.zero;
+            }
         }
 
         void ProcessPlayerDetectors(PlayerEnterDetector ped) {

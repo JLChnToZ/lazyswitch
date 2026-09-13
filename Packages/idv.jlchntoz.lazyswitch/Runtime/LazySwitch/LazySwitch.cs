@@ -2,15 +2,14 @@
 using UnityEngine.UI;
 using UnityEngine.Animations;
 using VRC.SDKBase;
-#if VRC_ENABLE_PLAYER_PERSISTENCE
 using VRC.SDK3.Persistence;
-#endif
+using VRC.SDK3.Data;
 using VRC.Dynamics;
 using VRC.Udon.Common.Interfaces;
 using UdonSharp;
 using JLChnToZ.VRC.Foundation;
 using JLChnToZ.VRC.Foundation.I18N;
-#if !COMPILER_UDONSHARP && UNITY_EDITOR && VRC_ENABLE_PLAYER_PERSISTENCE
+#if !COMPILER_UDONSHARP && UNITY_EDITOR
 using System.Collections.Generic;
 using System.Runtime.CompilerServices;
 #endif
@@ -24,7 +23,7 @@ namespace JLChnToZ.VRC {
     [BindEvent(typeof(Button), nameof(Button.onClick), nameof(Interact))]
     [BindEvent(typeof(Toggle), nameof(Toggle.onValueChanged), nameof(Interact))]
     public class LazySwitch : UdonSharpEventSender {
-#if !COMPILER_UDONSHARP && UNITY_EDITOR && VRC_ENABLE_PLAYER_PERSISTENCE
+#if !COMPILER_UDONSHARP && UNITY_EDITOR
         static readonly ConditionalWeakTable<LazySwitch, EditorOnlyData> editorOnlyData = new ConditionalWeakTable<LazySwitch, EditorOnlyData>();
         static readonly Dictionary<string, HashSet<LazySwitch>> persistenceKeyToSwitches = new Dictionary<string, HashSet<LazySwitch>>();
 #endif
@@ -38,6 +37,7 @@ namespace JLChnToZ.VRC {
         int state;
         [SerializeField, LocalizedLabel] internal bool isSynced;
         [SerializeField, LocalizedLabel] internal bool isRandomized;
+        [SerializeField, LocalizedLabel] internal bool isInteractive = true;
         [SerializeField, LocalizedLabel] internal LazySwitch masterSwitch;
         [SerializeField, HideInInspector, BindUdonSharpEvent]
         LanguageManager languageManager;
@@ -55,12 +55,11 @@ namespace JLChnToZ.VRC {
         [SerializeField] internal byte[] allowedStatesList;
         [SerializeField] internal int allowedStatesCount;
         [SerializeField, LocalizedLabel, LocalizedEnum] internal FixupMode fixupMode;
-#if VRC_ENABLE_PLAYER_PERSISTENCE
         [SerializeField, LocalizedLabel] internal string persistenceKey;
         [SerializeField, LocalizedLabel] internal bool separatePersistencePerPlatform;
         [SerializeField, LocalizedLabel] internal bool separatePersistenceForVR;
-#endif
         [UdonSynced] byte syncedState;
+        DataDictionary contactLock = new DataDictionary();
         object[] resolvedTargetObjects;
         int[] targetObjectAnimatorHashes;
         bool hasInit;
@@ -81,9 +80,7 @@ namespace JLChnToZ.VRC {
                 if (state == value) return;
                 state = value;
                 _UpdateAndSync();
-#if VRC_ENABLE_PLAYER_PERSISTENCE
                 _Save();
-#endif
             }
         }
 
@@ -91,15 +88,14 @@ namespace JLChnToZ.VRC {
 #if !COMPILER_UDONSHARP && UNITY_EDITOR
             if (!Application.isPlaying) return;
 #endif
+            if (!isInteractive) DisableInteractive = true;
             if (Utilities.IsValid(pickup)) {
-                DisableInteractive = true;
                 var interactionText = InteractionText;
                 if (!string.IsNullOrEmpty(interactionText)) {
                     pickup.UseText = interactionText;
                     InteractionText = "";
                 }
-            } else if (allowedStatesCount <= 0)
-                DisableInteractive = true;
+            }
             if (Utilities.IsValid(masterSwitch)) {
                 _UpdateState();
                 return;
@@ -107,14 +103,14 @@ namespace JLChnToZ.VRC {
             if (isSynced && !Networking.IsOwner(gameObject)) {
                 if (!Networking.IsObjectReady(gameObject)) return;
                 state = syncedState;
-#if VRC_ENABLE_PLAYER_PERSISTENCE
                 _Save();
             } else {
                 Load(Networking.LocalPlayer);
-#endif
             }
             UpdateState();
         }
+
+        void OnDisable() => contactLock.Clear();
 
         void Init() {
             if (hasInit) return;
@@ -159,11 +155,9 @@ namespace JLChnToZ.VRC {
             }
         }
 
-#if VRC_ENABLE_PLAYER_PERSISTENCE
         public override void OnPlayerRestored(VRCPlayerApi player) {
             if (player.isLocal && !Utilities.IsValid(masterSwitch) && Load(player)) _UpdateAndSync();
         }
-#endif
 
         public override void Interact() {
             if (isActiveAndEnabled && !DisableInteractive) _SwitchState();
@@ -173,11 +167,18 @@ namespace JLChnToZ.VRC {
             if (isActiveAndEnabled && Utilities.IsValid(pickup)) _SwitchState();
         }
 
-        public override void OnContactEnter(ContactEnterInfo contactInfo) {
+        public override void OnContactEnter(ContactEnterInfo info) {
             if (!isActiveAndEnabled) return;
-            var player = contactInfo.contactSender.player;
-            if (Utilities.IsValid(player) && player.isLocal) _SwitchState();
+            var sender = info.contactSender;
+            var player = sender.player;
+            if (!Utilities.IsValid(player) || !player.isLocal) return;
+            bool firstContact = contactLock.Count == 0;
+            contactLock[new DataToken(sender)] = true;
+            if (firstContact) _SwitchState();
         }
+
+        public override void OnContactExit(ContactExitInfo info) =>
+            contactLock.Remove(new DataToken(info.contactSender));
 
         /// <summary>
         /// Switch to the next state, or a random state if randomized.
@@ -220,15 +221,11 @@ namespace JLChnToZ.VRC {
             if (Utilities.IsValid(masterSwitch)) {
                 masterSwitch.state = nextState;
                 masterSwitch._UpdateAndSync();
-#if VRC_ENABLE_PLAYER_PERSISTENCE
                 masterSwitch._Save();
-#endif
             } else {
                 state = nextState;
                 _UpdateAndSync();
-#if VRC_ENABLE_PLAYER_PERSISTENCE
                 _Save();
-#endif
             }
             if (Utilities.IsValid(tooltipTexts)) UpdateInteractionText(nextState);
         }
@@ -242,9 +239,7 @@ namespace JLChnToZ.VRC {
             if (!isSynced) return;
             state = syncedState;
             UpdateState();
-#if VRC_ENABLE_PLAYER_PERSISTENCE
             _Save();
-#endif
         }
 
 #if COMPILER_UDONSHARP
@@ -258,7 +253,6 @@ namespace JLChnToZ.VRC {
             }
         }
 
-#if VRC_ENABLE_PLAYER_PERSISTENCE
         bool CheckPersistenceKey() {
             bool hasPersistenceKey = !string.IsNullOrEmpty(persistenceKey);
             if (separatePersistenceForVR) {
@@ -288,7 +282,6 @@ namespace JLChnToZ.VRC {
             state = savedState;
             return true;
         }
-#endif
 
         void UpdateState() {
             _UpdateState();
@@ -384,7 +377,7 @@ namespace JLChnToZ.VRC {
                 InteractionText = localizedText;
         }
 
-#if !COMPILER_UDONSHARP && UNITY_EDITOR && VRC_ENABLE_PLAYER_PERSISTENCE
+#if !COMPILER_UDONSHARP && UNITY_EDITOR
         public bool IsPersistenceKeyShared =>
             !string.IsNullOrEmpty(persistenceKey) &&
             persistenceKeyToSwitches.TryGetValue(persistenceKey, out var switches) &&
