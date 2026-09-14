@@ -19,9 +19,10 @@ namespace JLChnToZ.VRC {
     /// A multi-purpose switch.
     /// </summary>
     [ExecuteInEditMode]
+    [DisallowMultipleComponent]
     [AddComponentMenu("JLChnToZ/Lazy Switch")]
-    [BindEvent(typeof(Button), nameof(Button.onClick), nameof(Interact))]
-    [BindEvent(typeof(Toggle), nameof(Toggle.onValueChanged), nameof(Interact))]
+    [BindEvent(typeof(Button), nameof(Button.onClick), nameof(_SwitchState))]
+    [BindEvent(typeof(Toggle), nameof(Toggle.onValueChanged), nameof(_SwitchState))]
     public class LazySwitch : UdonSharpEventSender {
 #if !COMPILER_UDONSHARP && UNITY_EDITOR
         static readonly ConditionalWeakTable<LazySwitch, EditorOnlyData> editorOnlyData = new ConditionalWeakTable<LazySwitch, EditorOnlyData>();
@@ -160,15 +161,14 @@ namespace JLChnToZ.VRC {
         }
 
         public override void Interact() {
-            if (isActiveAndEnabled && !DisableInteractive) _SwitchState();
+            if (isActiveAndEnabled && isInteractive) _SwitchState();
         }
 
         public override void OnPickupUseDown() {
-            if (isActiveAndEnabled && Utilities.IsValid(pickup)) _SwitchState();
+            if (Utilities.IsValid(pickup)) _SwitchState();
         }
 
         public override void OnContactEnter(ContactEnterInfo info) {
-            if (!isActiveAndEnabled) return;
             var sender = info.contactSender;
             var player = sender.player;
             if (!Utilities.IsValid(player) || !player.isLocal) return;

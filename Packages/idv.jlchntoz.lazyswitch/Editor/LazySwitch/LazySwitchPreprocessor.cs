@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.UI;
 using UnityEngine.Pool;
 using UnityEngine.SceneManagement;
 using VRC.SDKBase;
@@ -31,7 +32,7 @@ namespace JLChnToZ.VRC {
                 CheckAndUpdateSyncMode(sw);
                 SetAllowedStates(sw);
                 SyncTooltipText(sw);
-                AddDummyCollider(sw);
+                UpdateInteractiveAndCollider(sw);
                 UdonSharpEditorUtility.CopyProxyToUdon(sw);
             }
             foreach (var ped in scene.IterateAllComponents<PlayerEnterDetector>(false))
@@ -182,7 +183,6 @@ namespace JLChnToZ.VRC {
                 sw.allowedStatesList = allowStates.ToArray();
                 sw.allowedStatesCount = allowStates.Count;
             }
-            if (sw.allowedStatesCount == 0 || sw.TryGetComponent(out VRC_Pickup _)) sw.isInteractive = false;
         }
 
         static void SyncTooltipText(LazySwitch sw) {
@@ -190,13 +190,27 @@ namespace JLChnToZ.VRC {
             sw.tooltipTexts[0] = UdonSharpEditorUtility.GetBackingUdonBehaviour(sw).interactText;
         }
 
-        static void AddDummyCollider(LazySwitch sw) {
-            if (sw == null || sw.TryGetComponent(out Collider _) || sw.TryGetComponent(out VRC_Pickup _)) return;
+        static void UpdateInteractiveAndCollider(LazySwitch sw) {
+            bool hasPickup = sw.TryGetComponent(out VRC_Pickup _);
+            if (sw.isInteractive && (hasPickup ||
+                sw.allowedStatesCount == 0 ||
+                sw.TryGetComponent(out Button _) ||
+                sw.TryGetComponent(out Toggle _)))
+                sw.isInteractive = false;
+            if (sw.TryGetComponent(out Collider _)) return;
             var collider = sw.gameObject.AddComponent<BoxCollider>();
             collider.isTrigger = true;
-            if (!sw.isInteractive) {
+            if (!sw.isInteractive && !hasPickup) {
                 collider.enabled = false;
                 collider.size = Vector3.zero;
+            } else if (sw.TryGetComponent(out Renderer renderer)) {
+                var bounds = renderer.localBounds;
+                collider.center = bounds.center;
+                collider.size = bounds.size;
+            } else if (sw.TryGetComponent(out RectTransform rt)) {
+                var rect = rt.rect;
+                collider.center = rect.center;
+                collider.size = rect.size;
             }
         }
 

@@ -33,6 +33,7 @@ namespace JLChnToZ.VRC {
             }
             I18NUtils.DrawLocaleField();
             SelfUpdater.DrawUpdateNotifier();
+            EditorGUILayout.Space();
             DrawContent();
         }
 
