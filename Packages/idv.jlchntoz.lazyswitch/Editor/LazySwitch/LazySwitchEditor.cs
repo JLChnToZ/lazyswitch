@@ -182,23 +182,26 @@ namespace JLChnToZ.VRC {
                     TestInteract();
             EditorGUILayout.Space();
             var isPlaying = EditorApplication.isPlayingOrWillChangePlaymode;
-            if (uiSelectable is Button)
-                EditorGUILayout.HelpBox(i18n["JLChnToZ.VRC.LazySwitch.isInteractive.forwardedToButton"], MessageType.Info);
-            else if (uiSelectable is Toggle)
-                EditorGUILayout.HelpBox(i18n["JLChnToZ.VRC.LazySwitch.isInteractive.forwardedToToggle"], MessageType.Info);
             if (contactReceiver != null)
                 EditorGUILayout.HelpBox(i18n["JLChnToZ.VRC.LazySwitch.isInteractive.forwardedToContact"], MessageType.Info);
             bool hasPickup = pickup != null;
-            bool showInteractiveOptions = hasStates && !hasPickup;
+            bool hasButton = uiSelectable is Button;
+            bool hasToggle = uiSelectable is Toggle;
+            bool hasForwarded = hasPickup || hasButton || hasToggle;
+            bool showInteractiveOptions = hasStates && !hasForwarded;
             serializedObject.Update();
             if (showInteractiveOptions)
                 using (new EditorGUI.DisabledScope(isPlaying))
                     EditorGUILayout.PropertyField(isInteractiveProp);
             else {
                 using (new EditorGUI.DisabledScope(true))
-                    EditorGUILayout.Toggle(i18n.GetLocalizedContent("JLChnToZ.VRC.LazySwitch.isInteractive"), hasStates && hasPickup);
+                    EditorGUILayout.Toggle(i18n.GetLocalizedContent("JLChnToZ.VRC.LazySwitch.isInteractive"), hasStates && hasForwarded);
                 if (hasPickup)
                     EditorGUILayout.HelpBox(i18n["JLChnToZ.VRC.LazySwitch.isInteractive.forwardedToPickup"], MessageType.Info);
+                if (hasButton)
+                    EditorGUILayout.HelpBox(i18n["JLChnToZ.VRC.LazySwitch.isInteractive.forwardedToButton"], MessageType.Info);
+                if (hasToggle)
+                    EditorGUILayout.HelpBox(i18n["JLChnToZ.VRC.LazySwitch.isInteractive.forwardedToToggle"], MessageType.Info);
             }
             isInteractive = hasStates && isInteractiveProp.boolValue;
             if (showInteractiveOptions && isInteractive && InitBackingUdonSerializedProperties()) {
