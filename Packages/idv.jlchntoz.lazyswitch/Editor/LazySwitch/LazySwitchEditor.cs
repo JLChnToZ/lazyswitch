@@ -159,7 +159,7 @@ namespace JLChnToZ.VRC {
                 if (tempBackingTargets.Count > 0) {
                     backingUdonBehaviours = tempBackingTargets.ToArray();
                     backingUdonSerializedObject = new SerializedObject(backingUdonBehaviours);
-                    interactTextProp = backingUdonSerializedObject.FindProperty(nameof(UdonBehaviour.interactText));
+                    interactTextProp = backingUdonSerializedObject.FindProperty(nameof(VRC_Interactable.interactText));
                     proximityProp = backingUdonSerializedObject.FindProperty(nameof(VRC_Interactable.proximity));
                     return true;
                 }
@@ -683,8 +683,11 @@ namespace JLChnToZ.VRC {
 
         void TestInteract() {
             foreach (var target in targets)
-                if (target is UdonSharpBehaviour usb)
-                    UdonSharpEditorUtility.GetBackingUdonBehaviour(usb).SendCustomEvent(nameof(LazySwitch._SwitchState));
+                if (target is UdonSharpBehaviour usb) {
+                    UdonSharpEditorUtility.CopyProxyToUdon(usb);
+                    UdonSharpEditorUtility.GetBackingUdonBehaviour(usb).RunProgram(nameof(LazySwitch._SwitchState));
+                    UdonSharpEditorUtility.CopyUdonToProxy(usb);
+                }
         }
 
         struct Entry {
