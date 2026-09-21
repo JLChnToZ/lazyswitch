@@ -23,20 +23,27 @@ namespace JLChnToZ.VRC {
         public int Priority => -1;
 
         public void OnPreprocess(Scene scene) {
-            foreach (var sw in scene.IterateAllComponents<LazySwitch>(false))
-                ConsolidateSwitchStates(sw);
-            foreach (var kv in switchGroups)
-                ConfigureMasterSwitch(kv.Key, kv.Value);
-            switchGroups.Clear();
-            foreach (var sw in switches) {
-                CheckAndUpdateSyncMode(sw);
-                SetAllowedStates(sw);
-                SyncTooltipText(sw);
-                UpdateInteractiveAndCollider(sw);
-                UdonSharpEditorUtility.CopyProxyToUdon(sw);
+            try {
+                foreach (var sw in scene.IterateAllComponents<LazySwitch>(false))
+                    ConsolidateSwitchStates(sw);
+                foreach (var kv in switchGroups)
+                    ConfigureMasterSwitch(kv.Key, kv.Value);
+                switchGroups.Clear();
+                foreach (var sw in switches) {
+                    CheckAndUpdateSyncMode(sw);
+                    SetAllowedStates(sw);
+                    SyncTooltipText(sw);
+                    UpdateInteractiveAndCollider(sw);
+                    UdonSharpEditorUtility.CopyProxyToUdon(sw);
+                }
+                foreach (var ped in scene.IterateAllComponents<PlayerEnterDetector>(false))
+                    ProcessPlayerDetectors(ped);
+            } finally {
+                switches.Clear();
+                switchGroups.Clear();
+                persistenceKeyToMasterSwitch.Clear();
+                targetObjectEnableMask.Clear();
             }
-            foreach (var ped in scene.IterateAllComponents<PlayerEnterDetector>(false))
-                ProcessPlayerDetectors(ped);
         }
 
         void ConsolidateSwitchStates(LazySwitch sw) {

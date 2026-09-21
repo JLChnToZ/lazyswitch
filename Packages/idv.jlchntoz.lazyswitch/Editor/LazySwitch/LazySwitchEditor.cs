@@ -6,6 +6,7 @@ using UnityEditor;
 using UnityEditorInternal;
 using VRC.SDKBase;
 using VRC.Dynamics;
+using VRC.SDK3.Dynamics.Contact.Components;
 using VRC.Udon;
 using VRC.Udon.Common.Interfaces;
 using UdonSharp;
@@ -25,6 +26,7 @@ namespace JLChnToZ.VRC {
     [CanEditMultipleObjects]
     sealed class LazySwitchEditor : LazySwitchEditorBase {
         static readonly string[] allowedStatesOptions = new string[32];
+        static GUIContent[] colliderUtilsContents;
         static readonly List<(UnityObject component, SwitchDrivenType subType, string parameter)> menuComponents = new List<(UnityObject, SwitchDrivenType, string)>();
         static GUIContent tempContent;
         SerializedProperty stateProp, isSyncedProp, isRandomizedProp, isInteractiveProp, masterSwitchProp, fixupModeProp, allowedStatesMaskProp,
@@ -38,6 +40,7 @@ namespace JLChnToZ.VRC {
         bool entriesUpdated;
         bool isInteractive;
         VRC_Pickup pickup;
+        Collider collider;
         ContactReceiver contactReceiver;
         Selectable uiSelectable;
         SerializedObject backingUdonSerializedObject;
@@ -115,8 +118,9 @@ namespace JLChnToZ.VRC {
             pickup = null;
             contactReceiver = null;
             uiSelectable = null;
+            collider = null;
             foreach (var target in targets) {
-                if (!(target is LazySwitch sw) || (pickup != null && contactReceiver != null && uiSelectable != null))
+                if (!(target is LazySwitch sw) || (pickup != null && contactReceiver != null && uiSelectable != null && collider != null))
                     continue;
                 if (pickup == null)
                     sw.TryGetComponent(out pickup);
@@ -124,6 +128,8 @@ namespace JLChnToZ.VRC {
                     sw.TryGetComponent(out contactReceiver);
                 if (uiSelectable == null)
                     sw.TryGetComponent(out uiSelectable);
+                if (collider == null)
+                    sw.TryGetComponent(out collider);
             }
         }
 
@@ -137,6 +143,7 @@ namespace JLChnToZ.VRC {
             pickup = null;
             contactReceiver = null;
             uiSelectable = null;
+            collider = null;
         }
 
         void CheckAndUpdateSyncMode() {
@@ -182,12 +189,15 @@ namespace JLChnToZ.VRC {
                     TestInteract();
             EditorGUILayout.Space();
             var isPlaying = EditorApplication.isPlayingOrWillChangePlaymode;
-            if (contactReceiver != null)
-                EditorGUILayout.HelpBox(i18n["JLChnToZ.VRC.LazySwitch.isInteractive.forwardedToContact"], MessageType.Info);
             bool hasPickup = pickup != null;
             bool hasButton = uiSelectable is Button;
             bool hasToggle = uiSelectable is Toggle;
             bool hasForwarded = hasPickup || hasButton || hasToggle;
+            if (contactReceiver != null)
+                EditorGUILayout.HelpBox(i18n["JLChnToZ.VRC.LazySwitch.isInteractive.forwardedToContact"], MessageType.Info);
+            else if (!hasForwarded)
+                using (new EditorGUI.DisabledScope(isPlaying))
+                    DrawAddContactUtils();
             bool showInteractiveOptions = hasStates && !hasForwarded;
             serializedObject.Update();
             if (showInteractiveOptions)
@@ -210,6 +220,8 @@ namespace JLChnToZ.VRC {
                     EditorGUILayout.PropertyField(proximityProp, i18n.GetLocalizedContent("JLChnToZ.VRC.LazySwitch.proximity"));
                     backingUdonSerializedObject.ApplyModifiedProperties();
                 }
+                using (new EditorGUI.DisabledScope(isPlaying))
+                    DrawAddColliderUtils();
                 EditorGUILayout.Space();
             }
             entriesUpdated = false;
@@ -691,6 +703,129 @@ namespace JLChnToZ.VRC {
                     UdonSharpEditorUtility.GetBackingUdonBehaviour(usb).RunProgram(nameof(LazySwitch._SwitchState));
                     UdonSharpEditorUtility.CopyUdonToProxy(usb);
                 }
+        }
+
+        void DrawAddColliderUtils() {
+            if (collider != null) return;
+            EditorGUILayout.HelpBox(i18n["JLChnToZ.VRC.LazySwitch.isInteractive.requireCollider"], MessageType.Warning);
+            using var horizontal = new GUILayout.HorizontalScope();
+            GUILayout.FlexibleSpace();
+            Collider newCollider = null;
+            switch (GUILayout.Toolbar(-1, colliderUtilsContents ??= new GUIContent[] {
+                EditorGUIUtility.IconContent("BoxCollider Icon"),
+                EditorGUIUtility.IconContent("SphereCollider Icon"),
+                EditorGUIUtility.IconContent("CapsuleCollider Icon"),
+                EditorGUIUtility.IconContent("MeshCollider Icon"),
+            }, GUILayout.Height(24), GUILayout.ExpandWidth(false))) {
+                case 0: newCollider = Undo.AddComponent<BoxCollider>((target as Component).gameObject); break;
+                case 1: newCollider = Undo.AddComponent<SphereCollider>((target as Component).gameObject); break;
+                case 2: newCollider = Undo.AddComponent<CapsuleCollider>((target as Component).gameObject); break;
+                case 3: newCollider = Undo.AddComponent<MeshCollider>((target as Component).gameObject); break;
+            }
+            GUILayout.FlexibleSpace();
+            if (newCollider != null) {
+                if (newCollider.TryGetComponent(out Renderer r)) {
+                    var bounds = r.localBounds;
+                    if (newCollider is BoxCollider bc) {
+                        bc.center = bounds.center;
+                        bc.size = bounds.size;
+                    } else if (newCollider is SphereCollider sc) {
+                        var size = bounds.size;
+                        sc.center = bounds.center;
+                        sc.radius = Mathf.Max(size.x, Mathf.Max(size.y, size.z)) / 2f;
+                    } else if (newCollider is CapsuleCollider cc) {
+                        var size = bounds.size;
+                        cc.center = bounds.center;
+                        switch (size.z > size.y ? size.z > size.x ? 2 : 0 : size.y > size.x ? 1 : 0) {
+                            case 0:
+                                cc.radius = Mathf.Max(size.y, size.z) / 2f;
+                                cc.height = size.x;
+                                cc.direction = 0;
+                                break;
+                            case 1:
+                                cc.radius = Mathf.Max(size.x, size.z) / 2f;
+                                cc.height = size.y;
+                                cc.direction = 1;
+                                break;
+                            case 2:
+                                cc.radius = Mathf.Max(size.x, size.y) / 2f;
+                                cc.height = size.z;
+                                cc.direction = 2;
+                                break;
+                        }
+                    } else if (newCollider is MeshCollider mc) {
+                        if (r is MeshRenderer && r.TryGetComponent(out MeshFilter mf))
+                            mc.sharedMesh = mf.sharedMesh;
+                        else if (r is SkinnedMeshRenderer smr)
+                            mc.sharedMesh = smr.sharedMesh;
+                    }
+                } else if (newCollider.TryGetComponent(out RectTransform rt)) {
+                    var rect = rt.rect;
+                    if (newCollider is BoxCollider bc) {
+                        bc.center = rect.center;
+                        bc.size = rect.size;
+                    } else if (newCollider is SphereCollider sc) {
+                        sc.center = rect.center;
+                        sc.radius = Mathf.Max(rect.width, rect.height) / 2f;
+                    } else if (newCollider is CapsuleCollider cc) {
+                        cc.center = rect.center;
+                        cc.height = rect.height;
+                        cc.radius = Mathf.Max(rect.width, rect.height) / 2f;
+                        cc.direction = 1;
+                    }
+                }
+                newCollider.isTrigger = true;
+                collider = newCollider;
+            }
+        }
+
+        void DrawAddContactUtils() {
+            if (contactReceiver != null) return;
+            if (!GUILayout.Button(i18n.GetLocalizedContent("JLChnToZ.VRC.LazySwitch.isInteractive.addContactReceiver"))) return;
+            var rc = Undo.AddComponent<VRCContactReceiver>((target as Component).gameObject);
+            if (collider is SphereCollider sc) {
+                rc.shapeType = ContactBase.ShapeType.Sphere;
+                rc.position = sc.center;
+                rc.radius = sc.radius;
+            } else if (collider is CapsuleCollider cc) {
+                rc.shapeType = ContactBase.ShapeType.Capsule;
+                rc.position = cc.center;
+                rc.radius = cc.radius;
+                rc.height = cc.height;
+                rc.rotation = DirectionToRotation(cc.direction);
+            } else if (collider is BoxCollider bc) {
+                rc.shapeType = ContactBase.ShapeType.Box;
+                rc.position = bc.center;
+                rc.size = bc.size;
+            } else if (collider is MeshCollider mc) {
+                var bounds = mc.bounds;
+                rc.shapeType = ContactBase.ShapeType.Box;
+                rc.position = bounds.center;
+                rc.size = bounds.size;
+            } else if (rc.TryGetComponent(out Renderer renderer)) {
+                var bounds = renderer.bounds;
+                rc.shapeType = ContactBase.ShapeType.Box;
+                rc.position = bounds.center;
+                rc.size = bounds.size;
+            } else if (rc.TryGetComponent(out RectTransform rectTransform)) {
+                var rect = rectTransform.rect;
+                rc.shapeType = ContactBase.ShapeType.Box;
+                rc.position = rect.center;
+                rc.size = rect.size;
+                rc.useFaceProximity = true;
+            }
+            rc.contentTypes = DynamicsUsageFlags.Avatar;
+            rc.collisionTags.Add("Hand");
+            rc.collisionTags.Add("Finger");
+            rc.collisionTags.Add("Foot");
+            contactReceiver = rc;
+        }
+
+        static Quaternion DirectionToRotation(int direction) {
+            Vector3 forward = default, up = default;
+            up[direction++] = 1F;
+            forward[direction % 3] = 1F;
+            return Quaternion.LookRotation(forward, up);
         }
 
         struct Entry {
