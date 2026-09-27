@@ -2,14 +2,16 @@ using System;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
-using UnityEngine.Pool;
 using UnityEngine.SceneManagement;
 using VRC.SDKBase;
 using VRC.Udon;
+using VRC.Dynamics;
+using VRC.SDK3.Data;
 using UdonSharp;
 using UdonSharpEditor;
 using JLChnToZ.VRC.Foundation.Editors;
 using UnityObject = UnityEngine.Object;
+using PooledObjects = JLChnToZ.VRC.Foundation.PooledObjectExtensions;
 
 namespace JLChnToZ.VRC {
     using static LazySwitchEditorUtils;
@@ -34,6 +36,7 @@ namespace JLChnToZ.VRC {
                     SetAllowedStates(sw);
                     SyncTooltipText(sw);
                     UpdateInteractiveAndCollider(sw);
+                    FetchContactSettings(sw);   
                     UdonSharpEditorUtility.CopyProxyToUdon(sw);
                 }
                 foreach (var ped in scene.IterateAllComponents<PlayerEnterDetector>(false))
@@ -182,7 +185,7 @@ namespace JLChnToZ.VRC {
 
         static void SetAllowedStates(LazySwitch sw) {
             sw.allowedStatesMask &= ~((~0) << sw.stateCount);
-            using (ListPool<byte>.Get(out var allowStates)) {
+            using (PooledObjects.Get(out List<byte> allowStates, sw.stateCount)) {
                 for (int state = 0; state < sw.stateCount; state++) {
                     if ((sw.allowedStatesMask & (1 << state)) == 0) continue;
                     allowStates.Add((byte)state);
@@ -221,16 +224,56 @@ namespace JLChnToZ.VRC {
             }
         }
 
+        static void FetchContactSettings(LazySwitch sw) {
+            if (!sw.TryGetComponent(out ContactReceiver receiver)) {
+                sw.contactSensitiveMode = 0;
+                sw.contactTransform = null;
+                return;
+            }
+            if (sw.contactSensitiveMode == 0)
+                sw.contactSensitiveMode = 1;
+            else if (sw.contactSensitiveMode > 1) {
+                if (Mathf.Approximately(sw.contactDirection.sqrMagnitude, 0F))
+                    sw.contactSensitiveMode = 1;
+                else
+                    sw.contactDirection.Normalize();
+                sw.contactTransform = sw.contactSensitiveMode > 2 ? receiver.GetRootTransform() : null;
+            }
+            receiver.contentTypes |= DynamicsUsageFlags.Avatar;
+            if (sw.hapticsStrength <= 0F) return;
+            sw.tagToHaptics ??= new DataDictionary();
+            using (PooledObjects.Get(out HashSet<string> tags)) {
+                tags.UnionWith(receiver.collisionTags);
+                AddLRTagsIfDistinct(tags, receiver.collisionTags, sw.tagToHaptics, "Hand");
+                AddLRTagsIfDistinct(tags, receiver.collisionTags, sw.tagToHaptics, "Finger");
+                AddLRTagsIfDistinct(tags, receiver.collisionTags, sw.tagToHaptics, "FingerIndex");
+                AddLRTagsIfDistinct(tags, receiver.collisionTags, sw.tagToHaptics, "FingerMiddle");
+                AddLRTagsIfDistinct(tags, receiver.collisionTags, sw.tagToHaptics, "FingerRing");
+                AddLRTagsIfDistinct(tags, receiver.collisionTags, sw.tagToHaptics, "FingerLittle");
+            }
+        }
+
+        static void AddLRTagsIfDistinct(HashSet<string> tags, List<string> dest, DataDictionary mapping, string tag) {
+            if (!tags.Contains(tag)) return;
+            AddIfDistinct(tags, dest, mapping, $"{tag}L", VRC_Pickup.PickupHand.Left);
+            AddIfDistinct(tags, dest, mapping, $"{tag}R", VRC_Pickup.PickupHand.Right);
+        }
+
+        static void AddIfDistinct(HashSet<string> tags, List<string> dest, DataDictionary mapping, string tag, VRC_Pickup.PickupHand hand) {
+            if (tags.Add(tag)) dest.Add(tag);
+            mapping[tag] = (int)hand;
+        }
+
         void ProcessPlayerDetectors(PlayerEnterDetector ped) {
             if (!ped.anyOwnedObjects || !ped.detectAllPlayers) return;
             var sw = ped.lazySwitch;
             if (!Utils.IsAvailableOnRuntime(sw)) return;
-            using (ListPool<Collider>.Get(out var tempColliders)) {
+            using (PooledObjects.Get(out List<Collider> tempColliders)) {
                 ped.GetComponents(tempColliders);
                 foreach (var collider in tempColliders)
                     collider.isTrigger = true;
             }
-            using (HashSetPool<GameObject>.Get(out var gameObjects)) {
+            using (PooledObjects.Get(out HashSet<GameObject> gameObjects)) {
                 foreach (var obj in sw.targetObjects)
                     if (obj != null && obj is GameObject go)
                         foreach (var component in go.IterateAllComponents<UdonBehaviour>(false))

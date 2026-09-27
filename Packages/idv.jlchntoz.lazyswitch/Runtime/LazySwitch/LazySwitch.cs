@@ -9,6 +9,7 @@ using VRC.Udon.Common.Interfaces;
 using UdonSharp;
 using JLChnToZ.VRC.Foundation;
 using JLChnToZ.VRC.Foundation.I18N;
+
 #if !COMPILER_UDONSHARP && UNITY_EDITOR
 using System.Collections.Generic;
 using System.Runtime.CompilerServices;
@@ -59,6 +60,14 @@ namespace JLChnToZ.VRC {
         [SerializeField, LocalizedLabel] internal string persistenceKey;
         [SerializeField, LocalizedLabel] internal bool separatePersistencePerPlatform;
         [SerializeField, LocalizedLabel] internal bool separatePersistenceForVR;
+        [SerializeField, HideInInspector] internal byte contactSensitiveMode; // 0 = skip sensitivity check, 1 = all directions, 2 = world space direction, 3 = local space direction
+        [SerializeField, LocalizedLabel, Min(0F)] internal float contactSensitivity;
+        [SerializeField] internal Vector3 contactDirection;
+        [SerializeField, HideInInspector] internal Transform contactTransform;
+        [SerializeField, LocalizedLabel, Range(0F, 1F)] internal float hapticsStrength;
+        [SerializeField, LocalizedLabel, Min(0.01F)] internal float hapticsDuration = 0.1F;
+        [SerializeField, LocalizedLabel, Min(0F)] internal float hapticsFrequency;
+        [SerializeField, HideInInspector] internal DataDictionary tagToHaptics;
         [UdonSynced] byte syncedState;
         DataDictionary contactLock = new DataDictionary();
         object[] resolvedTargetObjects;
@@ -172,9 +181,23 @@ namespace JLChnToZ.VRC {
             var sender = info.contactSender;
             var player = sender.player;
             if (!Utilities.IsValid(player) || !player.isLocal) return;
+            if (contactSensitiveMode > 0) {
+                var enterVelocity = info.enterVelocity;
+                if (contactSensitiveMode > 1) {
+                    var dir = contactSensitiveMode > 2 ? contactTransform.TransformDirection(contactDirection) : contactDirection;
+                    if (Vector3.Dot(Vector3.Project(enterVelocity, dir), dir) < contactSensitivity) return;
+                } else if (enterVelocity.magnitude < contactSensitivity) return;
+            }
             bool firstContact = contactLock.Count == 0;
             contactLock[new DataToken(sender)] = true;
-            if (firstContact) _SwitchState();
+            if (!firstContact) return;
+            _SwitchState();
+            if (hapticsStrength > 0f)
+                foreach (var tag in info.matchingTags)
+                    if (tagToHaptics.TryGetValue(tag, TokenType.Int, out var hand)) {
+                        player.PlayHapticEventInHand((VRC_Pickup.PickupHand)hand.Int, hapticsDuration, hapticsStrength, hapticsFrequency);
+                        break;
+                    }
         }
 
         public override void OnContactExit(ContactExitInfo info) =>

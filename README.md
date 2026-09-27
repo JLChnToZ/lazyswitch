@@ -8,6 +8,8 @@ This is a multi-purpose switch component for use in VRChat worlds. Here is its f
 - Works with both local or global (synced) mode.
 - States can be saved with [Player Persistence API](https://creators.vrchat.com/worlds/udon/persistence/)
 - Contact support, you can attach [VRC Contact Receiver](https://creators.vrchat.com/common-components/contacts/#vrccontactreceiver) in the same game object and it works out of the box.
+- Advanced directional filter with threshold for contact system, reduces chances on double-activate or accidentally triggers it.
+- Haptic feedbacks on touch with contacts.
 - It supports toggling these assets/components individually:
     - Game Objects
     - Udon Behaviours
@@ -20,6 +22,7 @@ This is a multi-purpose switch component for use in VRChat worlds. Here is its f
     - VRC Pickups
     - Custom Render Textures
     - Particle Systems (by Module)
+    - Animators (Triggers and Boolean parameters)
 - Easy to setup interface, adding / removing components just by clicking or dragging.
 - Self contained, the script file already contains everything it need to work, except VRChat SDK and Unity.
 

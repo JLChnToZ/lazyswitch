@@ -27,12 +27,14 @@ namespace JLChnToZ.VRC {
     sealed class LazySwitchEditor : LazySwitchEditorBase {
         static readonly string[] allowedStatesOptions = new string[32];
         static GUIContent[] colliderUtilsContents;
+        static GUIContent editDirectionIcon;
         static readonly List<(UnityObject component, SwitchDrivenType subType, string parameter)> menuComponents = new List<(UnityObject, SwitchDrivenType, string)>();
         static GUIContent tempContent;
         SerializedProperty stateProp, isSyncedProp, isRandomizedProp, isInteractiveProp, masterSwitchProp, fixupModeProp, allowedStatesMaskProp,
             targetObjectsProp, targetObjectTypesProp, targetObjectGroupOffsetsProp, targetObjectEnableMaskProp, targetObjectAnimatorKeysProp,
-            tooltipTextsProp, useLocalizedTooltipsProp, interactTextProp, proximityProp;
-        SerializedProperty persistenceKeyProp, separatePersistencePerPlatformProp, separatePersistenceForVRProp;
+            contactSensitiveModeProp, contactSensitivityProp, contactDirectionProp, hapticsStrengthProp, hapticsDurationProp, hapticsFrequencyProp,
+            tooltipTextsProp, useLocalizedTooltipsProp, interactTextProp, proximityProp,
+            persistenceKeyProp, separatePersistencePerPlatformProp, separatePersistenceForVRProp;
         ReorderableList targetObjectsList;
         readonly List<Entry> targetObjectsEntries = new List<Entry>();
         int masterSwitchState;
@@ -45,6 +47,7 @@ namespace JLChnToZ.VRC {
         Selectable uiSelectable;
         SerializedObject backingUdonSerializedObject;
         UdonBehaviour[] backingUdonBehaviours;
+        bool isEditingDirection;
 
         byte LastSeparatorIndex {
             get {
@@ -95,6 +98,12 @@ namespace JLChnToZ.VRC {
             targetObjectGroupOffsetsProp = serializedObject.FindProperty(nameof(LazySwitch.targetObjectGroupOffsets));
             targetObjectEnableMaskProp = serializedObject.FindProperty(nameof(LazySwitch.targetObjectEnableMask));
             targetObjectAnimatorKeysProp = serializedObject.FindProperty(nameof(LazySwitch.targetObjectAnimatorKeys));
+            contactSensitiveModeProp = serializedObject.FindProperty(nameof(LazySwitch.contactSensitiveMode));
+            contactSensitivityProp = serializedObject.FindProperty(nameof(LazySwitch.contactSensitivity));
+            contactDirectionProp = serializedObject.FindProperty(nameof(LazySwitch.contactDirection));
+            hapticsStrengthProp = serializedObject.FindProperty(nameof(LazySwitch.hapticsStrength));
+            hapticsDurationProp = serializedObject.FindProperty(nameof(LazySwitch.hapticsDuration));
+            hapticsFrequencyProp = serializedObject.FindProperty(nameof(LazySwitch.hapticsFrequency));
             tooltipTextsProp = serializedObject.FindProperty(nameof(LazySwitch.tooltipTexts));
             useLocalizedTooltipsProp = serializedObject.FindProperty(nameof(LazySwitch.useLocalizedTooltips));
             fixupModeProp = serializedObject.FindProperty(nameof(LazySwitch.fixupMode));
@@ -193,11 +202,6 @@ namespace JLChnToZ.VRC {
             bool hasButton = uiSelectable is Button;
             bool hasToggle = uiSelectable is Toggle;
             bool hasForwarded = hasPickup || hasButton || hasToggle;
-            if (contactReceiver != null)
-                EditorGUILayout.HelpBox(i18n["JLChnToZ.VRC.LazySwitch.isInteractive.forwardedToContact"], MessageType.Info);
-            else if (!hasForwarded)
-                using (new EditorGUI.DisabledScope(isPlaying))
-                    DrawAddContactUtils();
             bool showInteractiveOptions = hasStates && !hasForwarded;
             serializedObject.Update();
             if (showInteractiveOptions)
@@ -222,8 +226,59 @@ namespace JLChnToZ.VRC {
                 }
                 using (new EditorGUI.DisabledScope(isPlaying))
                     DrawAddColliderUtils();
-                EditorGUILayout.Space();
             }
+            EditorGUILayout.Space();
+            if (contactReceiver != null) {
+                EditorGUILayout.HelpBox(i18n["JLChnToZ.VRC.LazySwitch.isInteractive.forwardedToContact"], MessageType.Info);
+                EditorGUILayout.PropertyField(contactSensitivityProp);
+                if (contactSensitivityProp.floatValue > 0) {
+                    int mode = contactSensitiveModeProp.intValue;
+                    if (mode == 0) contactSensitiveModeProp.intValue = mode = 1;
+                    bool isDirectional = mode > 1, isLocalSpace = mode > 2;
+                    var rect = EditorGUILayout.GetControlRect(true, EditorGUIUtility.singleLineHeight);
+                    using (var changeCheck = new EditorGUI.ChangeCheckScope()) {
+                        var toggleRect = rect;
+                        if (isDirectional) toggleRect.width = EditorGUIUtility.labelWidth;
+                        using var prop = new EditorGUI.PropertyScope(toggleRect, i18n.GetLocalizedContent("JLChnToZ.VRC.LazySwitch.contactSensitiveMode.isDirectional"), contactSensitiveModeProp);
+                        isDirectional = EditorGUI.ToggleLeft(toggleRect, prop.content, isDirectional);
+                        if (changeCheck.changed) {
+                            contactSensitiveModeProp.intValue = isDirectional ? 3 : 1;
+                            if (isDirectional && Mathf.Approximately(contactDirectionProp.vector3Value.sqrMagnitude, 0F))
+                                contactDirectionProp.vector3Value = Vector3.back;
+                        }
+                        rect.xMin = toggleRect.xMax + 2F;
+                    }
+                    if (isDirectional) {
+                        var directionRect = rect;
+                        directionRect.xMax -= 18F;
+                        using (var prop = new EditorGUI.PropertyScope(directionRect, GUIContent.none, contactSensitiveModeProp))
+                            EditorGUI.PropertyField(directionRect, contactDirectionProp, prop.content);
+                        rect.xMin = directionRect.xMax + 2F;
+                        editDirectionIcon ??= new GUIContent(EditorGUIUtility.IconContent("EditCollider")) { text = "", tooltip = "" };
+                        var buttonRect = rect;
+                        buttonRect.width = 16F;
+                        using (var changeCheck = new EditorGUI.ChangeCheckScope()) {
+                            isEditingDirection = GUI.Toggle(buttonRect, isEditingDirection, editDirectionIcon, EditorStyles.iconButton);
+                            if (changeCheck.changed) SceneView.RepaintAll();
+                        }
+                        using (new EditorGUI.IndentLevelScope()) {
+                            using var changeCheck = new EditorGUI.ChangeCheckScope();
+                            isLocalSpace = EditorGUILayout.Toggle(i18n.GetLocalizedContent("JLChnToZ.VRC.LazySwitch.contactSensitiveMode.isLocalSpace"), isLocalSpace);
+                            if (changeCheck.changed) contactSensitiveModeProp.intValue = isLocalSpace ? 3 : 2;
+                        }
+                    } else
+                        isEditingDirection = false;
+                } else
+                    contactSensitiveModeProp.intValue = 0;
+                EditorGUILayout.PropertyField(hapticsStrengthProp);
+                if (hapticsStrengthProp.floatValue > 0) {
+                    EditorGUILayout.PropertyField(hapticsDurationProp);
+                    EditorGUILayout.PropertyField(hapticsFrequencyProp);
+                }
+                EditorGUILayout.Space();
+            } else if (!hasForwarded)
+                using (new EditorGUI.DisabledScope(isPlaying))
+                    DrawAddContactUtils();
             entriesUpdated = false;
             using (new EditorGUI.DisabledScope(isPlaying)) {
                 EditorGUILayout.PropertyField(masterSwitchProp);
@@ -299,6 +354,22 @@ namespace JLChnToZ.VRC {
         protected override void OnLanguageChanged() {
             for (int i = 0; i < allowedStatesOptions.Length; i++)
                 allowedStatesOptions[i] = string.Format(i18n["JLChnToZ.VRC.LazySwitch.state"], i);
+        }
+
+        void OnSceneGUI() {
+            serializedObject.Update();
+            if (contactSensitiveModeProp.intValue < 2) return;
+            var transform = contactReceiver != null ? contactReceiver.GetRootTransform() : (serializedObject.targetObject as Component).transform;
+            using (new Handles.DrawingScope(new Color(1F, 0.5F, 0F, 0.5F), contactSensitiveModeProp.intValue > 2 ? transform.localToWorldMatrix : Matrix4x4.Translate(transform.position))) {
+                var q = Quaternion.LookRotation(contactDirectionProp.vector3Value);
+                if (Event.current.type == EventType.Repaint)
+                    Handles.ArrowHandleCap(0, Vector3.zero, q, 1F, EventType.Repaint);
+                if (!isEditingDirection) return;
+                using var change = new EditorGUI.ChangeCheckScope();
+                q = Handles.RotationHandle(q, Vector3.zero);
+                if (change.changed) contactDirectionProp.vector3Value = q * Vector3.forward;
+            }
+            serializedObject.ApplyModifiedProperties();
         }
 
         float CalculateTargetObjectElementHeight(int index) {
