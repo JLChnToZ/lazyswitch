@@ -362,22 +362,24 @@ namespace JLChnToZ.VRC {
 
         void OnSceneGUI() {
             serializedObject.Update();
-            if (contactSensitiveModeProp.intValue < 2) return;
+            var contactSensitive = contactSensitiveModeProp.intValue;
+            if (contactSensitive < 2) return;
             var transform = contactReceiver != null ? contactReceiver.GetRootTransform() : (serializedObject.targetObject as Component).transform;
             var position = transform.TransformPoint(contactReceiver != null ? contactReceiver.position : Vector3.zero);
-            var rotation = Quaternion.LookRotation(contactDirectionProp.vector3Value);
+            var rotation = contactSensitive > 2 ? transform.rotation * contactReceiver.rotation : Quaternion.identity;
+            var lookAt = rotation * Quaternion.LookRotation(contactDirectionProp.vector3Value);
             var size = HandleUtility.GetHandleSize(position);
             using (new Handles.DrawingScope(new Color(1F, 0.5F, 0F, 0.5F)))
                 if (Event.current.type == EventType.Repaint)
-                    Handles.ArrowHandleCap(0, position, rotation, size, EventType.Repaint);
+                    Handles.ArrowHandleCap(0, position, lookAt, size, EventType.Repaint);
             if (!isEditingDirection) return;
             using (var change = new EditorGUI.ChangeCheckScope()) {
-                rotation = Handles.FreeRotateHandle(rotation, position, size * 1.1F);
+                lookAt = Handles.FreeRotateHandle(lookAt, position, size * 1.1F);
                 using (new Handles.DrawingScope(Handles.xAxisColor))
-                    rotation = Handles.Disc(rotation, position, rotation * Vector3.right, size, true, 0);
+                    lookAt = Handles.Disc(lookAt, position, lookAt * Vector3.right, size, true, 0);
                 using (new Handles.DrawingScope(Handles.yAxisColor))
-                    rotation = Handles.Disc(rotation, position, rotation * Vector3.up, size, true, 0);
-                if (change.changed) contactDirectionProp.vector3Value = rotation * Vector3.forward;
+                    lookAt = Handles.Disc(lookAt, position, lookAt * Vector3.up, size, true, 0);
+                if (change.changed) contactDirectionProp.vector3Value = Quaternion.Inverse(rotation) * lookAt * Vector3.forward;
             }
             serializedObject.ApplyModifiedProperties();
         }

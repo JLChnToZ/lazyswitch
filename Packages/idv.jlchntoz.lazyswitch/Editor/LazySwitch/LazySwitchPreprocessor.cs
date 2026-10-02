@@ -237,7 +237,11 @@ namespace JLChnToZ.VRC {
                     sw.contactSensitiveMode = 1;
                 else
                     sw.contactDirection.Normalize();
-                sw.contactTransform = sw.contactSensitiveMode > 2 ? receiver.GetRootTransform() : null;
+                if (sw.contactSensitiveMode > 2) {
+                    sw.contactTransform = receiver.GetRootTransform();
+                    sw.contactDirection = receiver.rotation * sw.contactDirection;
+                } else
+                    sw.contactTransform = null;
             }
             receiver.contentTypes |= DynamicsUsageFlags.Avatar;
             if (sw.hapticsStrength <= 0F) return;
