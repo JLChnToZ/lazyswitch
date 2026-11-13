@@ -26,6 +26,11 @@
             "name": "com.cyan.cyantrigger",
             "expression": "",
             "define": "CYAN_TRIGGER_IMPORTED"
+        },
+        {
+            "name": "com.vrchat.worlds",
+            "expression": "3.10.6",
+            "define": "VRCSDK_3_10_6_OR_NEWER"
         }
     ],
     "noEngineReferences": false

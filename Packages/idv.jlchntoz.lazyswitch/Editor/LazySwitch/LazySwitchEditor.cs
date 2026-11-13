@@ -35,6 +35,9 @@ namespace JLChnToZ.VRC {
             contactSensitiveModeProp, contactSensitivityProp, contactDirectionProp, hapticsStrengthProp, hapticsDurationProp, hapticsFrequencyProp,
             tooltipTextsProp, useLocalizedTooltipsProp, interactTextProp, proximityProp,
             persistenceKeyProp, separatePersistencePerPlatformProp, separatePersistenceForVRProp;
+#if VRCSDK_3_10_6_OR_NEWER
+        SerializedProperty outlineRenderersProp;
+#endif
         ReorderableList targetObjectsList;
         readonly List<Entry> targetObjectsEntries = new List<Entry>();
         int masterSwitchState;
@@ -177,6 +180,9 @@ namespace JLChnToZ.VRC {
                     backingUdonSerializedObject = new SerializedObject(backingUdonBehaviours);
                     interactTextProp = backingUdonSerializedObject.FindProperty(nameof(VRC_Interactable.interactText));
                     proximityProp = backingUdonSerializedObject.FindProperty(nameof(VRC_Interactable.proximity));
+#if VRCSDK_3_10_6_OR_NEWER
+                    outlineRenderersProp = backingUdonSerializedObject.FindProperty(nameof(VRC_Interactable.OutlineRenderers));
+#endif
                     return true;
                 }
             }
@@ -222,6 +228,9 @@ namespace JLChnToZ.VRC {
                 using (new EditorGUI.IndentLevelScope()) {
                     backingUdonSerializedObject.Update();
                     EditorGUILayout.PropertyField(proximityProp, i18n.GetLocalizedContent("JLChnToZ.VRC.LazySwitch.proximity"));
+#if VRCSDK_3_10_6_OR_NEWER
+                    EditorGUILayout.PropertyField(outlineRenderersProp, i18n.GetLocalizedContent("JLChnToZ.VRC.LazySwitch.outlineRenderers"));
+#endif
                     backingUdonSerializedObject.ApplyModifiedProperties();
                 }
                 using (new EditorGUI.DisabledScope(isPlaying))
